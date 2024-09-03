@@ -13,7 +13,7 @@
   - Record commands shown at the end. Execute all but leave both `scp` of
     binaries and `twine upload` for later because it's a security release.
 - [ ] BUMP **MINOR VERSION** in `django/__init__.py`
-  - {{ version }} -> {{ version|next_version }}
+  - `{{ version }}` -> `{{ version|next_version }}`
   - `final` -> `alpha`
   - Commit message: `[{{ version|series }}] Post-release version bump.`
 
@@ -23,7 +23,7 @@
   - `ssh -i ~/.ssh/dali/id_rsa www@origin.djangoproject.com 'ls -l /home/www/www/media/releases/{{ version|major_minor_version }}'`
 - [ ] **ONLY SCP** each binary set (tar.gz and wheel) to the corresponding folder (use commands from before)
 - [ ] CONFIRM RELEASE via jenkins job
-  - https://djangoci.com/job/confirm-release/ "Build with parameters" passing {{ version }} as version
+  - https://djangoci.com/job/confirm-release/ "Build with parameters" passing `{{ version }}` as version
 - [ ] Run test new version script
 - [ ] Add a new Release entry in djangoproject.com/admin for {{ version }}
 - [ ] Twine upload (use commands from before)

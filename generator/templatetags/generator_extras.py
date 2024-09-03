@@ -57,7 +57,7 @@ def enumerate_items(items, item_formatter=None):
 
 @register.filter
 def enumerate_cves(cves, field="cve_year_number"):
-    return enumerate_items([cve[field] for cve in cves])
+    return enumerate_items([getattr(cve, field) for cve in cves])
 
 
 @register.filter
@@ -84,7 +84,6 @@ def format_versions_for_blogpost(versions):
 
 
 @register.filter
-def cve_headline_for_blogpost(cve, headline_char="="):
-    headline = f"{cve['cve_year_number']}: {cve['summary']}"
+def rst_underline_for_headline(headline, headline_char="="):
     headline_underline = headline_char * len(headline)
     return f"{headline}\n{headline_underline}"

@@ -47,6 +47,7 @@
   - Include REPORTER and severity!
   - e.g. https://www.djangoproject.com/admin/blog/entry/706/change/
   - Title: `Django security releases issued: {{ versions|enumerate_items }}`
+  - Slug: `security-releases`
   - Summary: `Django {{ versions|enumerate_items }} fix {% if cves_length == 1 %}one security issue{% else %}{{ cves_length }} security issues{% endif %}.`
   - Body:
 ```
@@ -81,7 +82,6 @@
     For details of severity levels, see:
     https://docs.djangoproject.com/en/dev/internals/security/#how-django-discloses-security-issues
     ```
-    {% endwith %}
 
 ## Release Day
 
@@ -97,26 +97,9 @@
 {% endfor %}
 
 ### For main -- DO NOT PUSH ANYTHING YET
-
-### Final tasks
-
-- [ ] Push all the new tags and push changes to `main` (and any stable branch for pre-releases).
-  - `git checkout main && git log && git push -v`
-  - `git push --tags`
-- [ ] Publish blogpost draft
-  - Include hashes!
-- [ ] Email to django-announce, django-developers, django-users ALSO post in forum
-  - e.g. https://forum.djangoproject.com/t/django-release-announcements/655/71
-  - Title: `Django security releases issued: {{ versions|enumerate_items }}`
-  - Body with short notice and link to blogpost for more details
-        ```
-        Details are available on the Django project weblog:
-        https://www.djangoproject.com/weblog/2024/feb/06/security-releases/
-        ```
-- [ ] Edit IRC topic
 - [ ] Start release notes for a new version, in the main branch, only for the latest stable branch!
   {% with next_version=versions.0|next_version %}
-  - Edit docs/releases/index.txt
+  - Edit `docs/releases/index.txt`
   - Create empty file for release at `docs/releases/{{ next_version }}.txt`
       - Add basic content:
 
@@ -138,35 +121,77 @@
       - `make html`
   - Commit
       - `Added stub release notes for {{ next_version }}.`
-  - Push directly to main
-      - `git push`
   - Backport to latest stable branch!
       -  `backport.sh {HASH}`
 - [ ] Add security patches entry to archive, in main and backport
-  - Edit `doc/releases/security.txt`
-      - Need blog post entry URL
+  - Edit `docs/releases/security.txt`
       - Need hashes
-      - Need CVE numbers ({{ cves|enumerate_cves }})
+```
+{% include 'generator/release_security_archive.rst' %}
+```
   - `make html`
   - `git commit -m 'Added {{ cves|enumerate_cves }} to security archive.'`
-  - `git push`
   - Check links from local docs
       - `firefox _build/html/releases/security.html`
   - Backport to all branches!!!
     {% for version in versions %}
     - `git checkout {{ version|stable_branch }} && git pull -v && backport.sh {HASH}`
-    - `git push -v`
     {% endfor %}
+  {% endwith %}
+
+### Final tasks
+
+- [ ] Push changes to `main` and any stable branch, including pre-releases:
+  - `git checkout main && git log && git push -v`
+{% for version in versions %}
+  - `git checkout {{ version|stable_branch }} && git log && git push -v`
+{% endfor %}
+- [ ] Push all the new tags at once
+  - `git push --tags`
+- [ ] Publish blogpost draft
+  - Include hashes!
+- [ ] Email to `django-announce@googlegroups.com, django-developers@googlegroups.com, django-users@googlegroups.com`
+  - Title: `Django security releases issued: {{ versions|enumerate_items }}`
+  - Body with short notice and link to blogpost for more details
+```
+Details are available on the Django project weblog:
+{{ release.blogpost_link }}
+```
+
+- [ ] Post in forum https://forum.djangoproject.com/t/django-release-announcements/655/
+  - e.g. https://forum.djangoproject.com/t/django-release-announcements/655/71
+```
+## Django security releases issued: {{ versions|enumerate_items }}
+
+:mega: Announcement:
+{{ release.blogpost_link }}
+
+:tada: Release notes:{% for version in versions %}
+ * https://docs.djangoproject.com/en/dev/releases/{{ version }}{% endfor %}
+```
+- [ ] Edit IRC topic
 - [ ] Send email to CVE people so the CVE entry is public (is private until now)
   - To: `oss-security@lists.openwall.com`
   - Cc: `security@djangoproject.com`
   - Subject: `Django {{ cves|enumerate_cves }}`
   - Body includes link to blog and blogpost text
-- [ ] Later, close PRs in security repo, link hashes, remove branches, close issue
+- [ ] Close PRs in security repo linking hashes
+  {% regroup hashes_by_versions|dictsortreversed:"branch" by branch as items %}
+  {% for item in items %}
+#### For {{ item.grouper }}
+```{% for i in item.list %}
+* Fix for {{ i.cve }} merged in {{ i.hash }}.{% endfor %}
+```
+  {% endfor %}
+- [ ] Close issues in security repo linking hashes
   - e.g. https://github.com/django/django-security/issues/376
-{% for version in versions %}
-#### For {{ version }}
-{% include 'generator/_close_security_pr.md' %}
-{% endfor %}
-
+  {% regroup hashes_by_versions|dictsort:"cve" by cve as items %}
+  {% for item in items %}
+#### For {{ item.grouper }}
+```
+Fixed:{% for i in item.list|dictsortreversed:'branch' %}
+* On the [{{ i.branch }} branch](https://github.com/django/django/commit/{{ i.hash }}){% endfor %}
+```
+  {% endfor %}
+- [ ] Remove branches
 {% endwith %}

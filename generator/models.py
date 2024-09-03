@@ -1,6 +1,8 @@
 from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 
 CVE_TYPE_OTHER = "Other or Unknown"
@@ -119,8 +121,7 @@ class Release(models.Model):
     def blogpost_link(self, slug=None):
         if slug is None:
             slug = self.slug
-        when = self.when.strftime("%Y/%m/%d")
-        print("\n\n\n\n=========== returning: " + f"https://www.djangoproject.com/weblog/{when}/{slug}/")
+        when = self.when.strftime("%Y/%b/%d").lower()
         return f"https://www.djangoproject.com/weblog/{when}/{slug}/"
 
 
@@ -190,9 +191,9 @@ class BugFixRelease(Release):
 class SecurityRelease(Release):
     versions = ArrayField(models.CharField(max_length=100))
     affected_branches = ArrayField(models.CharField(max_length=100))
-    # A ManyToMany between versions and hashes fixing a given issue in a given
-    # affected branch.
-    # hashes = ArrayField(models.CharField(max_length=100))
+    # A mapping between CVEs and affected branches, each one contaning the
+    # hashes fixing the issue.
+    hashes = models.JSONField(default={})
 
     checklist_template = "generator/release-security-skeleton.md"
     slug = "security-releases"
@@ -200,11 +201,34 @@ class SecurityRelease(Release):
     def __str__(self):
         return f"Security release for {self.versions}"
 
+    @property
+    def hashes_by_versions(self):
+        return [
+            {"branch": branch, "cve": cve, "hash": h}
+            for cve, hashes in self.hashes.items()
+            for branch, h in hashes.items()
+        ]
+
     def get_context_data(self):
-        return super().get_context_data() | {"cves": [
-            cve.__dict__
-            for cve in self.securityissue_set.all().order_by("cve_year_number")
-        ]}
+        extra = {
+            "cves": [
+                cve
+                for cve in self.securityissue_set.all().order_by("cve_year_number")
+            ],
+            "hashes_by_versions": self.hashes_by_versions,
+        }
+        import pprint
+        pprint.pprint(extra)
+        return super().get_context_data() | extra
+
+    def populate_hashes(self, cve, overwrite=False, commit=True):
+        cve_key = cve.cve_year_number
+        if cve_key not in self.hashes or overwrite:
+            self.hashes[cve_key] = {i: None for i in self.affected_branches}
+            if commit:
+                self.save(update_fields={"hashes"})
+                return True
+        return False
 
 
 class SecurityIssue(models.Model):
@@ -227,6 +251,19 @@ class SecurityIssue(models.Model):
     reporter = models.CharField(max_length=1024, blank=True)
     release = models.ForeignKey(SecurityRelease, on_delete=models.CASCADE)
 
+    @property
+    def headline_for_blogpost(self):
+        return f"{self.cve_year_number}: {self.summary}"
+
+    @property
+    def headline_for_archive(self):
+        when = self.release.when.strftime("%B %-d, %Y")
+        return f"{when} - :cve:`{self.cve_year_number.replace('CVE-', '')}`"
+
+    @property
+    def hashes_by_branch(self):
+        return reversed(self.release.hashes[self.cve_year_number].items())
+
     def clean_fields(self, *args, **kwargs):
         if self.cve_type == CVE_TYPE_OTHER and not self.other_type:
             raise ValidationError(
@@ -235,3 +272,9 @@ class SecurityIssue(models.Model):
             )
         if self.cve_type != CVE_TYPE_OTHER and self.other_type:
             raise ValidationError(f'"Other type" should be blank for "{self.cve_type}".')
+
+
+
+@receiver(post_save, sender=SecurityIssue)
+def populate_release_hashes(sender, instance, created, **kwargs):
+    instance.release.populate_hashes(instance, overwrite=created)

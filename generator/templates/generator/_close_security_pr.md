@@ -1,2 +1,4 @@
 {% load generator_extras %}
-##### WIP
+{% for cve in cves %}
+* Fix for {{ cve }} merged in {{ hash }}.
+{% endfor %}
