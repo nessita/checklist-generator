@@ -22,7 +22,7 @@
     - Other vulnerability type info: `{{ cve.other_type }}`
     {% endif %}
     - Vendor of the product(s) info: `djangoproject`
-    - Affected product(s)/code base info:
+    - Affected product(s)/code base (split in product/version rows!):
       ```{% for version in versions %}
       {{ version|format_version_for_cve }}
       {% endfor %}```
@@ -39,7 +39,7 @@
     - Discoverer(s)/Credits info: `{{ cve.reporter }}`
     - Reference(s) info:
       ```
-      https://groups.google.com/forum/#!forum/django-announce
+      https://groups.google.com/g/django-announce
       https://docs.djangoproject.com/en/dev/releases/security/
       ```
   {% endfor %}
@@ -56,15 +56,19 @@
 ## 10 days before
 
 - [ ] Prepare patches targeting releases {{ versions|enumerate_items }}, and main
-  - `git format-patch HEAD~1`
+  - `git format-patch HEAD~{{ cves_length }}`
   - e.g. https://github.com/django/django-security/pull/375
 
 ## One Week before
 
 - [ ] Sent prenotification email
   - `Notice of upcoming Django security releases ({{ versions|enumerate_items }})`
-  - Use blogpost draft
-  - GPG signed email to a given list of special users https://github.com/django/django-security/wiki/Security-prenotification-email-template
+  - Use blogpost draft, create a new text file with content.
+    - Reference: https://github.com/django/django-security/wiki/Security-prenotification-email-template
+  - GPG sign that new file: `gpg --clearsign --digest-algo SHA256 prenotification-email.txt`
+  - Send signed content to a given list of special users.
+    - Attach patches.
+    - USE BCC!: https://github.com/django/django-security/wiki/Security-Release-Prenotification-Email-List
 - [ ] Post announcement in mailing list (without details)
     ```
     Django versions {{ versions|enumerate_items }} will be released on
@@ -84,12 +88,15 @@
 - [ ] Update security report and update patches for main and stable branches
 - [ ] Empty push to private GH so actions are (re)run
 - [ ] Regenerate patches against latest revno in each branch
+  - `git format-patch HEAD~{{ cves_length }}`
 
-### For each release
+### For each binary release -- DO NOT PUSH ANYTHING YET
 {% for version in versions %}
 #### For {{ version }}
 {% include 'generator/_make_release_public.md' %}
 {% endfor %}
+
+### For main -- DO NOT PUSH ANYTHING YET
 
 ### Final tasks
 

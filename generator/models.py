@@ -116,7 +116,9 @@ class Release(models.Model):
     def get_context_data(self):
         return {"release": self, "title": self._meta.verbose_name.title()}
 
-    def blogpost_link(self, slug):
+    def blogpost_link(self, slug=None):
+        if slug is None:
+            slug = self.slug
         when = self.when.strftime("%Y/%m/%d")
         print("\n\n\n\n=========== returning: " + f"https://www.djangoproject.com/weblog/{when}/{slug}/")
         return f"https://www.djangoproject.com/weblog/{when}/{slug}/"
@@ -136,8 +138,9 @@ class FeatureRelease(Release):
     def __str__(self):
         return f"{self.version} {self.tagline}"
 
-    def blogpost_link(self):
-        return super().blogpost_link(f"django-{self.final_version.replace('.', '')}-released")
+    @property
+    def slug(self):
+        return f"django-{self.final_version.replace('.', '')}-released"
 
 
 class PreRelease(Release):
@@ -157,29 +160,31 @@ class PreRelease(Release):
 class AlphaRelease(PreRelease):
     checklist_template = "generator/release-alpha-skeleton.md"
 
-    def blogpost_link(self):
-        return super().blogpost_link(f"django-{self.final_version.replace('.', '')}-alpha-released")
+    @property
+    def slug(self):
+        return f"django-{self.final_version.replace('.', '')}-alpha-released"
 
 
 class BetaRelease(PreRelease):
     checklist_template = "generator/release-beta-skeleton.md"
 
-    def blogpost_link(self):
-        return super().blogpost_link(f"django-{self.final_version.replace('.', '')}-beta-released")
+    @property
+    def slug(self):
+        return f"django-{self.final_version.replace('.', '')}-beta-released"
 
 
 class ReleaseCandidateRelease(PreRelease):
     checklist_template = "generator/release-rc-skeleton.md"
 
-    def blogpost_link(self):
-        return super().blogpost_link(f"django-{self.final_version.replace('.', '')}-rc1")
+    @property
+    def slug(self):
+        return f"django-{self.final_version.replace('.', '')}-rc1"
 
 
 class BugFixRelease(Release):
     feature_release = models.ForeignKey(FeatureRelease, on_delete=models.CASCADE)
 
-    def blogpost_link(self):
-        return super().blogpost_link(f"bugfix-releases")
+    slug = "bugfix-releases"
 
 
 class SecurityRelease(Release):
@@ -190,6 +195,7 @@ class SecurityRelease(Release):
     # hashes = ArrayField(models.CharField(max_length=100))
 
     checklist_template = "generator/release-security-skeleton.md"
+    slug = "security-releases"
 
     def __str__(self):
         return f"Security release for {self.versions}"
@@ -199,9 +205,6 @@ class SecurityRelease(Release):
             cve.__dict__
             for cve in self.securityissue_set.all().order_by("cve_year_number")
         ]}
-
-    def blogpost_link(self):
-        return super().blogpost_link("security-releases")
 
 
 class SecurityIssue(models.Model):

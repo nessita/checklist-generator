@@ -8,7 +8,7 @@
 - [ ] Update [forum post]({{ feature_release.forum_post }}) with any relevant news
 - [ ] Draft blog post
   - Headline: `Django {{ release.verbose_version }} released`
-  - Slug: `django-{{ release.final_version|cut:"." }}-rc1`
+  - Slug: `{{ release.slug }}`
   - Format: reStructuredText
   - Summary: `Today Django {{ release.verbose_version }}, a preview/testing package for the upcoming Django {{ release.final_version }} release, is available.`
   - Body:
