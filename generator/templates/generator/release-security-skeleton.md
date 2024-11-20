@@ -22,10 +22,11 @@
     - Other vulnerability type info: `{{ cve.other_type }}`
     {% endif %}
     - Vendor of the product(s) info: `djangoproject`
-    - Affected product(s)/code base (split in product/version rows!):
+    - Affected product(s)/code base (SPLIT in product and version (X before Y) in rows!):
       ```{% for version in versions %}
-      {{ version|format_version_for_cve }}
-      {% endfor %}```
+      [row 1] Django
+      [row 2] {{ version|format_version_for_cve }}
+      {% if not forloop.last %}---------- Click [+] Add ----------{% endif %}{% endfor %}```
     - Has vendor confirmed or acknowledged the vulnerability? `Yes`
     - Attack type info: `{{ cve.attack_type }}`
     - Impact info: `{{ cve.impact }}`

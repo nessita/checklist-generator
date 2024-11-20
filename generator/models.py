@@ -193,7 +193,7 @@ class SecurityRelease(Release):
     affected_branches = ArrayField(models.CharField(max_length=100))
     # A mapping between CVEs and affected branches, each one contaning the
     # hashes fixing the issue.
-    hashes = models.JSONField(default={})
+    hashes = models.JSONField(default=dict, blank=True)
 
     checklist_template = "generator/release-security-skeleton.md"
     slug = "security-releases"
@@ -250,6 +250,9 @@ class SecurityIssue(models.Model):
 
     reporter = models.CharField(max_length=1024, blank=True)
     release = models.ForeignKey(SecurityRelease, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f"Security issue for {self.cve_year_number}"
 
     @property
     def headline_for_blogpost(self):

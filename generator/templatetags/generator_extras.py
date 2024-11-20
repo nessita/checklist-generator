@@ -62,7 +62,7 @@ def enumerate_cves(cves, field="cve_year_number"):
 
 @register.filter
 def format_version_for_cve(version):
-    return f"Django {major_minor_version(version)} before {version}"
+    return f"{major_minor_version(version)} before {version}"
 
 
 @register.filter
