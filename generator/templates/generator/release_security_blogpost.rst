@@ -8,7 +8,7 @@ users of Django to upgrade as soon as possible.
 {% for cve in cves %}
 {{ cve.headline_for_blogpost|rst_underline_for_headline:'=' }}
 
-{{ cve.description|wordwrap:79 }}
+{{ cve.blogdescription|default:cve.description|wordwrap:80 }}
 {% if cve.reporter %}
 Thanks to {{ cve.reporter }} for the report.
 {% endif %}

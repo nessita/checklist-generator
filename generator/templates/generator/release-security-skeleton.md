@@ -65,13 +65,13 @@
 
 - [ ] Sent prenotification email
   - `Notice of upcoming Django security releases ({{ versions|enumerate_items }})`
-  - Use blogpost draft, create a new text file with content.
+  - Create a new text file with content similar to this (use CVE parts from the blogpost draft):
     - Reference: https://github.com/django/django-security/wiki/Security-prenotification-email-template
   - GPG sign that new file: `gpg --clearsign --digest-algo SHA256 prenotification-email.txt`
-  - Send signed content to a given list of special users.
+  - Send an email with body using the signed content to a given list of special users:
     - Attach patches.
     - USE BCC!: https://github.com/django/django-security/wiki/Security-Release-Prenotification-Email-List
-- [ ] Post announcement in mailing list (without details)
+- [ ] Post announcement in mailing list (without details in django-announce):
     ```
     Django versions {{ versions|enumerate_items }} will be released on
     {{ when.date|date:"l, F j" }} around {{ when.time|date:"H:i" }} UTC.
@@ -91,14 +91,26 @@
 - [ ] Regenerate patches against latest revno in each branch
   - `git format-patch HEAD~{{ cves_length }}`
 
-### For each binary release -- DO NOT PUSH ANYTHING YET
+### Phase 0: apply patches and build binaries -- DO NOT PUSH NOR PUBLISH ANYTHING YET
+
+#### For `main`
+- [ ] Switch to the main branch:
+  - `git checkout main && git pull -v`
+- [ ] Apply patch
+  - `git am path/to/patch/for/main`
+{% for version in versions %}
+#### For {{ version }}
+{% include 'generator/_build_release_binaries.md' %}
+{% endfor %}
+
+### Phase 1: publish binaries -- ONLY 15 MINUTES BEFORE RELEASE TIME
 {% for version in versions %}
 #### For {{ version }}
 {% include 'generator/_make_release_public.md' %}
 {% endfor %}
 
-### For main -- DO NOT PUSH ANYTHING YET
-- [ ] Start release notes for a new version, in the main branch, only for the latest stable branch!
+### Phase 2: cleanup chores
+- [ ] In the main branch, start release notes for the next version only for the latest stable branch!
   {% with next_version=versions.0|next_version %}
   - Edit `docs/releases/index.txt`
   - Create empty file for release at `docs/releases/{{ next_version }}.txt`
@@ -122,7 +134,7 @@
       - `make html`
   - Commit
       - `Added stub release notes for {{ next_version }}.`
-  - Backport to latest stable branch!
+  - Backport new release notes to latest stable branch!
       -  `backport.sh {HASH}`
 - [ ] Add security patches entry to archive, in main and backport
   - Edit `docs/releases/security.txt`
@@ -134,13 +146,13 @@
   - `git commit -m 'Added {{ cves|enumerate_cves }} to security archive.'`
   - Check links from local docs
       - `firefox _build/html/releases/security.html`
-  - Backport to all branches!!!
+  - Backport security archive update to all branches!
     {% for version in versions %}
-    - `git checkout {{ version|stable_branch }} && git pull -v && backport.sh {HASH}`
+    - `git checkout {{ version|stable_branch }} && backport.sh {HASH}`
     {% endfor %}
   {% endwith %}
 
-### Final tasks
+### Final tasks -- PUSH EVERYTHING TO BRANCHES
 
 - [ ] Push changes to `main` and any stable branch, including pre-releases:
   - `git checkout main && git log && git push -v`
