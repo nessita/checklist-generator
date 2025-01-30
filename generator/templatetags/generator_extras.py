@@ -51,7 +51,10 @@ def enumerate_items(items, item_formatter=None):
     if item_formatter is not None:
         items = [item_formatter(item) for item in items]
     *rest, last = items
-    last_joiner = ", and " if len(rest) > 1 else " and "  # Oxford comma
+    if not rest:
+        return last
+
+    last_joiner = ", and " if len(rest) > 2 else " and "  # Oxford comma
     return last_joiner.join((", ".join(rest), last))
 
 

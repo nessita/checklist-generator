@@ -109,10 +109,11 @@
 {% include 'generator/_make_release_public.md' %}
 {% endfor %}
 
-### Phase 2: cleanup chores
+### Phase 2: final updates
 - [ ] In the main branch, start release notes for the next version only for the latest stable branch!
   {% with next_version=versions.0|next_version %}
-  - Edit `docs/releases/index.txt`
+  - `git checkout main`
+  - Edit `docs/releases/index.txt` and add an entry for `{{ next_version }}`
   - Create empty file for release at `docs/releases/{{ next_version }}.txt`
       - Add basic content:
 
@@ -129,16 +130,18 @@
         ========
 
         * ...
+
         ```
   - Confirm docs works
       - `make html`
   - Commit
-      - `Added stub release notes for {{ next_version }}.`
+      - `git commit -m 'Added stub release notes for {{ next_version }}.'`
   - Backport new release notes to latest stable branch!
       -  `backport.sh {HASH}`
-- [ ] Add security patches entry to archive, in main and backport
+- [ ]  In the main branch, add security patches entry to archive and backport
+  - `git checkout main`
   - Edit `docs/releases/security.txt`
-      - Need hashes
+      - Need hashes!
 ```
 {% include 'generator/release_security_archive.rst' %}
 ```
@@ -157,7 +160,8 @@
 - [ ] Push changes to `main` and any stable branch, including pre-releases:
   - `git checkout main && git log && git push -v`
 {% for version in versions %}
-  - `git checkout {{ version|stable_branch }} && git log && git push -v`
+  - `git checkout {{ version|stable_branch }} && git log`
+  - `git push -v`
 {% endfor %}
 - [ ] Push all the new tags at once
   - `git push --tags`
@@ -193,7 +197,7 @@ Details are available on the Django project weblog:
   {% for item in items %}
 #### For {{ item.grouper }}
 ```{% for i in item.list %}
-* Fix for {{ i.cve }} merged in {{ i.hash }}.{% endfor %}
+* Fix for {{ i.cve }} merged in https://github.com/django/django/commit/{{ i.hash }}.{% endfor %}
 ```
   {% endfor %}
 - [ ] Close issues in security repo linking hashes

@@ -9,12 +9,13 @@
   - **SAVE** resulting hash for later, add it to blogpost draft and security PR
 - [ ] Change version in `django/__init__.py`
   - `alpha` -> `final`
-  - Commit message: `[{{ version|series }}] Bumped version for {{ version }} release.`
+  - `git commit -m '[{{ version|series }}] Bumped version for {{ version }} release.'`
 - [ ] RUN script to do the release:
   - `do_django_release.py`
-  - Record commands shown at the end. Execute all but leave both `scp` of
-    binaries and `twine upload` for later because it's a security release.
+  - Record commands shown at the end. Execute all but leave `git push --tags`,
+    both `scp` of binaries, and `twine upload` for later because it's a security
+    release.
 - [ ] BUMP **MINOR VERSION** in `django/__init__.py`
   - `{{ version }}` -> `{{ version|next_version }}`
   - `final` -> `alpha`
-  - Commit message: `[{{ version|series }}] Post-release version bump.`
+  - `git commit -m '[{{ version|series }}] Post-release version bump.'`
