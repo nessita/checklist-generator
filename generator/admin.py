@@ -19,11 +19,9 @@ def render_checklist(request, queryset):
     assert queryset.count() == 1, "A single item should be selected"
     instance = queryset.get()
     context = instance.__dict__
-    if getattr(instance, 'get_context_data', None) is not None:
+    if getattr(instance, "get_context_data", None) is not None:
         context.update(instance.get_context_data())
-    checklist = render_to_string(
-        instance.checklist_template, context, request=request
-    )
+    checklist = render_to_string(instance.checklist_template, context, request=request)
     return HttpResponse(checklist, content_type="text/markdown")
 
 
@@ -67,7 +65,6 @@ class SecurityIssueAdmin(admin.ModelAdmin):
     list_display = ["cve_year_number", "summary", "severity"]
     list_filter = ["severity"]
     search_fields = ["cve_year_number", "summary", "description"]
-
 
 
 admin.site.register(FeatureRelease, FeatureReleaseAdmin)

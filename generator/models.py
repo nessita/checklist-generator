@@ -99,6 +99,7 @@ Examples:
 </pre>
 """
 
+
 class Release(models.Model):
     version = models.CharField(max_length=10)
     is_lts = models.BooleanField(default=False)
@@ -133,7 +134,8 @@ class FeatureRelease(Release):
             "Filler to use in the sentence <i>Django [version] brings "
             "[tagline] which you can read about in the release notes.</i></br>"
             "For example: <i>Django 5.1 brings <strong>a kaleidoscope of "
-            "improvements</strong></i>."),
+            "improvements</strong></i>."
+        ),
     )
 
     def __str__(self):
@@ -212,12 +214,12 @@ class SecurityRelease(Release):
     def get_context_data(self):
         extra = {
             "cves": [
-                cve
-                for cve in self.securityissue_set.all().order_by("cve_year_number")
+                cve for cve in self.securityissue_set.all().order_by("cve_year_number")
             ],
             "hashes_by_versions": self.hashes_by_versions,
         }
         import pprint
+
         pprint.pprint(extra)
         return super().get_context_data() | extra
 
@@ -234,13 +236,17 @@ class SecurityRelease(Release):
 class SecurityIssue(models.Model):
     cve_year_number = models.CharField(max_length=1024, unique=True)
     cve_type = models.CharField(
-        max_length=1024, choices=[(i, i) for i in CVE_TYPE], default=CVE_TYPE_OTHER)
-    other_type = models.CharField(
-        max_length=1024, default="DoS", blank=True)
+        max_length=1024, choices=[(i, i) for i in CVE_TYPE], default=CVE_TYPE_OTHER
+    )
+    other_type = models.CharField(max_length=1024, default="DoS", blank=True)
     attack_type = models.CharField(
-        max_length=1024, choices=[(i, i) for i in ATTACK_TYPE], default="Remote")
+        max_length=1024, choices=[(i, i) for i in ATTACK_TYPE], default="Remote"
+    )
     impact = models.CharField(
-        max_length=1024, choices=[(i, i) for i in IMPACT_TYPE], default="Denial of Service")
+        max_length=1024,
+        choices=[(i, i) for i in IMPACT_TYPE],
+        default="Denial of Service",
+    )
     severity = models.CharField(
         choices=[(i, i.capitalize()) for i in ("low", "moderate", "high")],
         default="moderate",
@@ -271,12 +277,13 @@ class SecurityIssue(models.Model):
     def clean_fields(self, *args, **kwargs):
         if self.cve_type == CVE_TYPE_OTHER and not self.other_type:
             raise ValidationError(
-                '"Other type" needs to be set when "Vulnerability type" is ' +
-                CVE_TYPE_OTHER
+                '"Other type" needs to be set when "Vulnerability type" is '
+                + CVE_TYPE_OTHER
             )
         if self.cve_type != CVE_TYPE_OTHER and self.other_type:
-            raise ValidationError(f'"Other type" should be blank for "{self.cve_type}".')
-
+            raise ValidationError(
+                f'"Other type" should be blank for "{self.cve_type}".'
+            )
 
 
 @receiver(post_save, sender=SecurityIssue)
