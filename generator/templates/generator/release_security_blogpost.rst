@@ -47,5 +47,5 @@ General notes regarding security reporting
 
 As always, we ask that potential security issues be reported via private email
 to ``security@djangoproject.com``, and not via Django's Trac instance, nor via
-the Django Forum, nor via the django-developers list. Please see `our security
-policies <https://www.djangoproject.com/security/>`_ for further information.
+the Django Forum. Please see `our security policies
+<https://www.djangoproject.com/security/>`_ for further information.

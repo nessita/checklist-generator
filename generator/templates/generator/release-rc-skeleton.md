@@ -54,7 +54,7 @@
   - {{ release.version }} ({% if not feature_release.is_lts %}non {% endif %}LTS)
   - https://www.djangoproject.com/admin/releases/release/{{ release.version }}/change/
 - [ ] Publish blog post
-- [ ] Post the release announcement to the [django-announce](https://docs.djangoproject.com/en/dev/internals/mailing-lists/#django-announce-mailing-list),[ django-developers](https://docs.djangoproject.com/en/dev/internals/mailing-lists/#django-developers-mailing-list),[ django-users](https://docs.djangoproject.com/en/dev/internals/mailing-lists/#django-users-mailing-list) mailing lists, and the Django Forum. 
+- [ ] Post the release announcement to the [django-announce](https://docs.djangoproject.com/en/dev/internals/mailing-lists/#django-announce-mailing-list) and to the Django Forum.
   - Subject: `Django {{ release.verbose_version }} released`
   - Body:
 ```

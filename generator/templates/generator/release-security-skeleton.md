@@ -167,7 +167,7 @@
   - `git push --tags`
 - [ ] Publish blogpost draft
   - Include hashes!
-- [ ] Email to `django-announce@googlegroups.com, django-developers@googlegroups.com, django-users@googlegroups.com`
+- [ ] Email to `django-announce@googlegroups.com`
   - Title: `Django security releases issued: {{ versions|enumerate_items }}`
   - Body with short notice and link to blogpost for more details
 ```
