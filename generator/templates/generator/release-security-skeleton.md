@@ -81,7 +81,7 @@
     They will fix {{ cves_length }} security defects with severities: {{ cves|enumerate_cves:"severity" }}.
     {% endif %}
     For details of severity levels, see:
-    https://docs.djangoproject.com/en/dev/internals/security/#how-django-discloses-security-issues
+    https://docs.djangoproject.com/en/dev/internals/security/#security-issue-severity-levels
     ```
 
 ## Release Day
