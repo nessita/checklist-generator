@@ -1,10 +1,14 @@
+import datetime
+
 from django.contrib.auth.models import User
 from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.utils.functional import cached_property
 
+from .utils import get_loose_version_tuple
 
 CVE_TYPE_OTHER = "Other or Unknown"
 CVE_TYPE = [
@@ -100,6 +104,96 @@ Examples:
 </pre>
 """
 
+class Release(models.Model):  # This is the exact model from djangoproject.com
+    STATUS_CHOICES = (
+        ("a", "alpha"),
+        ("b", "beta"),
+        ("c", "release candidate"),
+        ("f", "final"),
+    )
+    STATUS_REVERSE = {
+        "alpha": "a",
+        "beta": "b",
+        "rc": "c",
+        "final": "f",
+    }
+
+    version = models.CharField(max_length=16, primary_key=True)
+    date = models.DateField(
+        "Release date",
+        null=True,
+        blank=True,
+        default=datetime.date.today,
+        help_text="Leave blank if the release date isn't know yet, typically "
+        "if you're creating the final release just after the alpha "
+        "because you want to build docs for the upcoming version.",
+    )
+    eol_date = models.DateField(
+        "End of life date",
+        null=True,
+        blank=True,
+        help_text="Leave blank if the end of life date isn't known yet, "
+        "typically because it depends on the release date of a "
+        "later version.",
+    )
+
+    major = models.PositiveSmallIntegerField(editable=False)
+    minor = models.PositiveSmallIntegerField(editable=False)
+    micro = models.PositiveSmallIntegerField(editable=False)
+    status = models.CharField(max_length=1, choices=STATUS_CHOICES, editable=False)
+    iteration = models.PositiveSmallIntegerField(editable=False)
+    is_lts = models.BooleanField(
+        "Long Term Support",
+        help_text='Is this an (<abbr title="Long Term Support">LTS</abbr>) release?',
+        default=False,
+    )
+
+    def save(self, *args, **kwargs):
+        self.major, self.minor, self.micro, status, self.iteration = self.version_tuple
+        self.status = self.STATUS_REVERSE[status]
+        super().save(*args, **kwargs)
+        # Each micro release EOLs the previous one in the same series.
+        if self.status == "f" and self.micro > 0:
+            (
+                type(self)
+                .objects.filter(
+                    major=self.major, minor=self.minor, micro=self.micro - 1, status="f"
+                )
+                .update(eol_date=self.date)
+            )
+
+    def __str__(self):
+        return self.version
+
+    @cached_property
+    def version_tuple(self):
+        """Return a tuple in the format of django.VERSION."""
+        version = self.version.replace("-", "").replace("_", "")
+        version = list(get_loose_version_tuple(version))
+        if len(version) == 2:
+            version.append(0)
+        if not isinstance(version[2], int):
+            version.insert(2, 0)
+        if len(version) == 3:
+            version.append("final")
+        if version[3] not in ("alpha", "beta", "rc", "final"):
+            version[3] = {"a": "alpha", "b": "beta", "c": "rc"}[version[3]]
+        if len(version) == 4:
+            version.append(0)
+        return tuple(version)
+
+    @cached_property
+    def feature_version(self):
+        return f"{self.major}.{self.minor}"
+
+    @cached_property
+    def series(self):
+        return f"{self.major}.x"
+
+    @cached_property
+    def is_pre_release(self):
+        return self.status != "f"
+
 
 class Releaser(models.Model):
     # Eventually a djangoproject.com User.
@@ -111,25 +205,18 @@ class Releaser(models.Model):
         return f"{self.key_id} <{self.key_url}>"
 
 
-class Release(models.Model):
-    version = models.CharField(max_length=10)
-    is_lts = models.BooleanField(default=False)
-
-    when = models.DateTimeField()
-    releaser = models.ForeignKey(Releaser, null=True, on_delete=models.SET_NULL)
-    who = models.CharField(max_length=1024)
-    who_key_id = models.CharField(max_length=100)
-    who_key_url = models.URLField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+class ReleaseEvent:
 
     checklist_template = None
 
-    class Meta:
-        abstract = True
+    @cached_property
+    def version(self):
+        if (release := getattr(self, "release", None)) is not None:
+            return release.version
+        return "many"
 
     def get_context_data(self):
-        return {"release": self, "title": self._meta.verbose_name.title()}
+        return {"release": self, "title": self.__class__.__name__}
 
     def blogpost_link(self, slug=None):
         if slug is None:
@@ -138,7 +225,12 @@ class Release(models.Model):
         return f"https://www.djangoproject.com/weblog/{when}/{slug}/"
 
 
-class FeatureRelease(Release):
+class FeatureRelease(ReleaseEvent, models.Model):
+    when = models.DateTimeField()
+    releaser = models.ForeignKey(Releaser, null=True, on_delete=models.SET_NULL)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    release = models.OneToOneField(Release, null=True, on_delete=models.SET_NULL)
     forum_post = models.URLField(blank=True)
     tagline = models.CharField(
         max_length=4096,
@@ -151,58 +243,70 @@ class FeatureRelease(Release):
     )
 
     def __str__(self):
-        return f"{self.version} {self.tagline}"
+        return f"{self.release} {self.tagline}"
 
     @property
     def slug(self):
         return f"django-{self.final_version.replace('.', '')}-released"
 
 
-class PreRelease(Release):
+class PreRelease(ReleaseEvent, models.Model):
+    when = models.DateTimeField()
+    releaser = models.ForeignKey(Releaser, null=True, on_delete=models.SET_NULL)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    release = models.OneToOneField(Release, null=True, on_delete=models.SET_NULL)
     feature_release = models.ForeignKey(FeatureRelease, on_delete=models.CASCADE)
     verbose_version = models.CharField(max_length=100)
 
     class Meta:
         abstract = True
 
+    @cached_property
+    def checklist_template(self):
+        return f"generator/release-{self.status}-skeleton.md"
+
+    @cached_property
     def final_version(self):
         return self.feature_release.version
+
+    @cached_property
+    def slug(self):
+        return f"django-{self.final_version.replace('.', '')}-{self.status}-released"
+
 
     def get_context_data(self):
         return super().get_context_data() | {"feature_release": self.feature_release}
 
 
 class AlphaRelease(PreRelease):
-    checklist_template = "generator/release-alpha-skeleton.md"
-
-    @property
-    def slug(self):
-        return f"django-{self.final_version.replace('.', '')}-alpha-released"
+    pass
 
 
 class BetaRelease(PreRelease):
-    checklist_template = "generator/release-beta-skeleton.md"
-
-    @property
-    def slug(self):
-        return f"django-{self.final_version.replace('.', '')}-beta-released"
+    pass
 
 
 class ReleaseCandidateRelease(PreRelease):
-    checklist_template = "generator/release-rc-skeleton.md"
-
-    @property
-    def slug(self):
-        return f"django-{self.final_version.replace('.', '')}-rc1"
+    pass
 
 
-class BugFixRelease(Release):
+class BugFixRelease(ReleaseEvent, models.Model):
+    when = models.DateTimeField()
+    releaser = models.ForeignKey(Releaser, null=True, on_delete=models.SET_NULL)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    release = models.OneToOneField(Release, null=True, on_delete=models.SET_NULL)
     feature_release = models.ForeignKey(FeatureRelease, on_delete=models.CASCADE)
 
     slug = "bugfix-releases"
 
 
-class SecurityRelease(Release):
+class SecurityRelease(ReleaseEvent, models.Model):
+    when = models.DateTimeField()
+    releaser = models.ForeignKey(Releaser, null=True, on_delete=models.SET_NULL)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     versions = ArrayField(models.CharField(max_length=100))
     affected_branches = ArrayField(models.CharField(max_length=100))
     # A mapping between CVEs and affected branches, each one contaning the
@@ -269,6 +373,8 @@ class SecurityIssue(models.Model):
 
     reporter = models.CharField(max_length=1024, blank=True)
     release = models.ForeignKey(SecurityRelease, on_delete=models.CASCADE)
+    # affected_branches = ArrayField(models.CharField(max_length=100))
+    # affected_versions = models.ManyToMany(Release) ???
 
     def __str__(self):
         return f"Security issue for {self.cve_year_number}"

@@ -10,6 +10,7 @@ from .models import (
     BetaRelease,
     FeatureRelease,
     ReleaseCandidateRelease,
+    Release,
     Releaser,
     SecurityIssue,
     SecurityRelease,
@@ -26,29 +27,39 @@ def render_checklist(request, queryset):
     return HttpResponse(checklist, content_type="text/markdown")
 
 
+class ReleaseAdmin(admin.ModelAdmin):
+    list_display = ["version", "date", "is_lts"]
+
+
 class ReleaserAdmin(admin.ModelAdmin):
     list_display = ["user", "key_id", "key_url"]
 
 
-class ReleaseAdminMixin:
-    list_display = ["version", "when", "releaser", "is_lts"]
-    list_filter = ["version"]
+class ReleaseEventAdminMixin:
+    list_display = ["version", "when", "releaser"]
+    list_filter = ["releaser"]
     actions = ["render_checklist"]
     readonly_fields = ["blogpost_link"]
+
+    # def queryset(self, request):
+    #     return super().get_queryset(request).prefetch_related("release_set")
 
     @admin.action(description="Render checklists for selected releases")
     def render_checklist(self, request, queryset):
         return render_checklist(request, queryset)
 
 
-class PreReleaseAdminMixin(ReleaseAdminMixin):
-    list_display = ["feature_release"] + ReleaseAdminMixin.list_display
-    list_filter = ["feature_release"] + ReleaseAdminMixin.list_filter
+class PreReleaseAdminMixin(ReleaseEventAdminMixin, admin.ModelAdmin):
+    list_display = ["feature_release"] + ReleaseEventAdminMixin.list_display
+    list_filter = ["feature_release"] + ReleaseEventAdminMixin.list_filter
 
 
-class FeatureReleaseAdmin(ReleaseAdminMixin, admin.ModelAdmin):
-    list_display = ReleaseAdminMixin.list_display + ["tagline"]
-    list_filter = ["version"]
+class FeatureReleaseAdmin(ReleaseEventAdminMixin, admin.ModelAdmin):
+    list_display = ReleaseEventAdminMixin.list_display + ["tagline"]
+
+
+class SecurityReleaseAdmin(ReleaseEventAdminMixin, DynamicArrayMixin, admin.ModelAdmin):
+    pass
 
 
 class BetaReleaseAdmin(PreReleaseAdminMixin, admin.ModelAdmin):
@@ -57,13 +68,6 @@ class BetaReleaseAdmin(PreReleaseAdminMixin, admin.ModelAdmin):
 
 class ReleaseCandidateReleaseAdmin(PreReleaseAdminMixin, admin.ModelAdmin):
     pass
-
-
-class SecurityReleaseAdmin(ReleaseAdminMixin, DynamicArrayMixin, admin.ModelAdmin):
-    _list_display = ReleaseAdminMixin.list_display.copy()
-    _list_display.remove("version")
-    list_display = ["versions"] + _list_display
-    list_filter = ["versions"]
 
 
 class SecurityIssueAdmin(admin.ModelAdmin):
@@ -75,6 +79,7 @@ class SecurityIssueAdmin(admin.ModelAdmin):
 admin.site.register(FeatureRelease, FeatureReleaseAdmin)
 admin.site.register(BetaRelease, BetaReleaseAdmin)
 admin.site.register(ReleaseCandidateRelease, ReleaseCandidateReleaseAdmin)
+admin.site.register(Release, ReleaseAdmin)
 admin.site.register(Releaser, ReleaserAdmin)
 admin.site.register(SecurityRelease, SecurityReleaseAdmin)
 admin.site.register(SecurityIssue, SecurityIssueAdmin)
