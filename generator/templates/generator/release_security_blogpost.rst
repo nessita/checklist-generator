@@ -1,4 +1,5 @@
 {% load generator_extras %}
+{% load partials %}
 In accordance with `our security release policy
 <https://docs.djangoproject.com/en/dev/internals/security/>`_, the Django team
 is issuing releases for
@@ -39,9 +40,9 @@ The following releases have been issued
   <https://www.djangoproject.com/m/releases/{{ version|major_minor_version }}/Django-{{ version }}.tar.gz>`_ |
   `{{ version }} checksums
   <https://www.djangoproject.com/m/pgp/Django-{{ version }}.checksum.txt>`_){% endfor %}
-
-The PGP key ID used for this release is {{ who }}: `{{ who_key_id }} <{{ who_key_url }}>`_
-
+{% partialdef releaser-data inline %}
+The PGP key ID used for this release is {{ releaser.get_full_name }}: `{{ releaser.key_id }} <{{ releaser.key_url }}>`_
+{% endpartialdef %}
 General notes regarding security reporting
 ==========================================
 

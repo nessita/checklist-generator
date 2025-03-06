@@ -1,3 +1,4 @@
+from django.contrib.auth.models import User
 from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -100,11 +101,22 @@ Examples:
 """
 
 
+class Releaser(models.Model):
+    # Eventually a djangoproject.com User.
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    key_id = models.CharField(max_length=100)
+    key_url = models.URLField()
+
+    def __str__(self):
+        return f"{self.key_id} <{self.key_url}>"
+
+
 class Release(models.Model):
     version = models.CharField(max_length=10)
     is_lts = models.BooleanField(default=False)
 
     when = models.DateTimeField()
+    releaser = models.ForeignKey(Releaser, null=True, on_delete=models.SET_NULL)
     who = models.CharField(max_length=1024)
     who_key_id = models.CharField(max_length=100)
     who_key_url = models.URLField()

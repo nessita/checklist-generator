@@ -1,3 +1,4 @@
+{% load partials %}
 Django {{ final_version }} beta 1 is now available. It represents the second
 stage in the {{ final_version }} release cycle and is an opportunity for you to
 try out the changes coming in Django {{ final_version }}.
@@ -25,4 +26,4 @@ bugs (which should be reported to `the issue tracker
 package from `our downloads page <https://www.djangoproject.com/download/>`_ or
 on PyPI.
 
-The PGP key ID used for this release is {{ who }}: `{{ who_key_id }} <{{ who_key_url }}>`_
+{% include "release_security_blogpost.rst#releaser-data" %}

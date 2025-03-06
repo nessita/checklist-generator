@@ -10,6 +10,7 @@ from .models import (
     BetaRelease,
     FeatureRelease,
     ReleaseCandidateRelease,
+    Releaser,
     SecurityIssue,
     SecurityRelease,
 )
@@ -25,8 +26,12 @@ def render_checklist(request, queryset):
     return HttpResponse(checklist, content_type="text/markdown")
 
 
+class ReleaserAdmin(admin.ModelAdmin):
+    list_display = ["user", "key_id", "key_url"]
+
+
 class ReleaseAdminMixin:
-    list_display = ["version", "when", "who", "is_lts"]
+    list_display = ["version", "when", "releaser", "is_lts"]
     list_filter = ["version"]
     actions = ["render_checklist"]
     readonly_fields = ["blogpost_link"]
@@ -70,5 +75,6 @@ class SecurityIssueAdmin(admin.ModelAdmin):
 admin.site.register(FeatureRelease, FeatureReleaseAdmin)
 admin.site.register(BetaRelease, BetaReleaseAdmin)
 admin.site.register(ReleaseCandidateRelease, ReleaseCandidateReleaseAdmin)
+admin.site.register(Releaser, ReleaserAdmin)
 admin.site.register(SecurityRelease, SecurityReleaseAdmin)
 admin.site.register(SecurityIssue, SecurityIssueAdmin)

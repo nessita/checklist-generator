@@ -1,3 +1,4 @@
+{% load partials %}
 Django {{ release.final_version }} release candidate 1 is the final opportunity for you to
 try out `{{ feature_release.tagline }}`__ before Django {{ release.final_version }} is released.
 
@@ -14,4 +15,4 @@ to `the issue tracker <https://code.djangoproject.com/newticket>`_), you can
 grab a copy of the release candidate package from
 `our downloads page <https://www.djangoproject.com/download/>`_ or on PyPI.
 
-The PGP key ID used for this release is {{ who }}: `{{ who_key_id }} <{{ who_key_url }}>`_
+{% include "release_security_blogpost.rst#releaser-data" %}
