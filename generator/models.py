@@ -243,7 +243,7 @@ class FeatureRelease(ReleaseEvent, models.Model):
     )
 
     def __str__(self):
-        return f"{self.release} {self.tagline}"
+        return f"{self.version} {self.tagline}"
 
     @property
     def slug(self):
@@ -373,8 +373,7 @@ class SecurityIssue(models.Model):
 
     reporter = models.CharField(max_length=1024, blank=True)
     release = models.ForeignKey(SecurityRelease, on_delete=models.CASCADE)
-    # affected_branches = ArrayField(models.CharField(max_length=100))
-    # affected_versions = models.ManyToMany(Release) ???
+    releases = models.ManyToManyField(Release)
 
     def __str__(self):
         return f"Security issue for {self.cve_year_number}"
