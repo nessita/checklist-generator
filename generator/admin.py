@@ -13,6 +13,7 @@ from .models import (
     Release,
     Releaser,
     SecurityIssue,
+    SecurityIssueReleasesThrough,
     SecurityRelease,
 )
 
@@ -59,7 +60,7 @@ class FeatureReleaseAdmin(ReleaseEventAdminMixin, admin.ModelAdmin):
 
 
 class SecurityReleaseAdmin(ReleaseEventAdminMixin, DynamicArrayMixin, admin.ModelAdmin):
-    pass
+    list_display = ["versions", "newversions", "newaffected_branches", "when", "releaser"]
 
 
 class BetaReleaseAdmin(PreReleaseAdminMixin, admin.ModelAdmin):
@@ -71,9 +72,15 @@ class ReleaseCandidateReleaseAdmin(PreReleaseAdminMixin, admin.ModelAdmin):
 
 
 class SecurityIssueAdmin(admin.ModelAdmin):
-    list_display = ["cve_year_number", "summary", "severity"]
+    list_display = ["cve_year_number", "summary", "severity", "commit_hash_main"]
     list_filter = ["severity"]
-    search_fields = ["cve_year_number", "summary", "description"]
+    search_fields = ["cve_year_number", "summary", "description", "commit_hash_main"]
+
+
+class SecurityIssueReleasesThroughAdmin(admin.ModelAdmin):
+    list_display = ["securityissue__cve_year_number", "release__version", "commit_hash"]
+    list_filter = ["release__version"]
+    search_fields = ["securityissue__cve_year_number", "release__version", "commit_hash"]
 
 
 admin.site.register(FeatureRelease, FeatureReleaseAdmin)
@@ -83,3 +90,4 @@ admin.site.register(Release, ReleaseAdmin)
 admin.site.register(Releaser, ReleaserAdmin)
 admin.site.register(SecurityRelease, SecurityReleaseAdmin)
 admin.site.register(SecurityIssue, SecurityIssueAdmin)
+admin.site.register(SecurityIssueReleasesThrough, SecurityIssueReleasesThroughAdmin)
