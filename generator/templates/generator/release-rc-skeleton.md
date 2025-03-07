@@ -61,7 +61,5 @@
 Details are available on the Django project weblog:
 {{ release.blogpost_link }}
 ```
-- [ ] Update IRC topic
 - [ ] Post on Forum calling for translations!
   - e.g. https://forum.djangoproject.com/t/django-5-0-string-freeze-is-in-effect-translations-needed/25511
-

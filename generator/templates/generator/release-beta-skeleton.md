@@ -62,4 +62,3 @@
 Details are available on the Django project weblog:
 {{ release.blogpost_link }}
 ```
-- [ ] Update IRC topic

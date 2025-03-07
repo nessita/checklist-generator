@@ -186,7 +186,6 @@ Details are available on the Django project weblog:
 :tada: Release notes:{% for version in versions %}
  * https://docs.djangoproject.com/en/dev/releases/{{ version }}{% endfor %}
 ```
-- [ ] Edit IRC topic
 - [ ] Send email to CVE people so the CVE entry is public (is private until now)
   - To: `oss-security@lists.openwall.com`
   - Cc: `security@djangoproject.com`
