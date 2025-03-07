@@ -325,7 +325,9 @@ class SecurityRelease(ReleaseEvent, models.Model):
                 r.version
                 for issue in self.securityissue_set.all()
                 for r in issue.releases.all()
-            }
+                if r.date  # no r.date could mean pre-release?
+            },
+            reverse=True,
         )
 
     @cached_property
@@ -340,9 +342,21 @@ class SecurityRelease(ReleaseEvent, models.Model):
     @property
     def hashes_by_versions(self):
         return [
-            {"branch": branch, "cve": cve, "hash": h}
-            for cve, hashes in self.hashes.items()
-            for branch, h in hashes.items()
+            {
+                "branch": sirt.release.feature_version,
+                "cve": sirt.securityissue.cve_year_number,
+                "hash": sirt.commit_hash,
+            }
+            for sirt in SecurityIssueReleasesThrough.objects.select_related(
+                "securityissue", "release"
+            ).filter(securityissue__release_id=self.id).order_by("release__version")
+        ] + [
+            {
+                "branch": "main",
+                "cve": issue.cve_year_number,
+                "hash": issue.commit_hash_main,
+            }
+            for issue in self.securityissue_set.all()
         ]
 
     def get_context_data(self):
@@ -350,11 +364,11 @@ class SecurityRelease(ReleaseEvent, models.Model):
             "cves": [
                 cve for cve in self.securityissue_set.all().order_by("cve_year_number")
             ],
+            "versions": self.versions,
             "hashes_by_versions": self.hashes_by_versions,
+            "affected_branches": self.affected_branches,
+            "releaser": self.releaser,
         }
-        import pprint
-
-        pprint.pprint(extra)
         return super().get_context_data() | extra
 
     def populate_hashes(self, cve, overwrite=False, commit=True):
@@ -431,7 +445,16 @@ class SecurityIssue(models.Model):
 
     @property
     def hashes_by_branch(self):
-        return reversed(self.release.hashes[self.cve_year_number].items())
+        return sorted(
+            [
+                (sirt.release.feature_version, sirt.commit_hash)
+                for sirt in SecurityIssueReleasesThrough.objects.select_related(
+                    "release"
+                ).filter(securityissue_id=self.id)
+            ]
+            + [("main", self.commit_hash_main)],
+            reverse=True,
+        )
 
     def clean_fields(self, *args, **kwargs):
         if self.cve_type == CVE_TYPE_OTHER and not self.other_type:

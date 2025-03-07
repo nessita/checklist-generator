@@ -41,7 +41,7 @@ The following releases have been issued
   `{{ version }} checksums
   <https://www.djangoproject.com/m/pgp/Django-{{ version }}.checksum.txt>`_){% endfor %}
 {% partialdef releaser-data inline %}
-The PGP key ID used for this release is {{ releaser.get_full_name }}: `{{ releaser.key_id }} <{{ releaser.key_url }}>`_
+The PGP key ID used for this release is {{ releaser.user.get_full_name }}: `{{ releaser.key_id }} <{{ releaser.key_url }}>`_
 {% endpartialdef %}
 General notes regarding security reporting
 ==========================================

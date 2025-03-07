@@ -64,6 +64,7 @@ class SecurityReleaseAdmin(ReleaseEventAdminMixin, DynamicArrayMixin, admin.Mode
     list_display = ["versions", "when", "releaser"]
     search_fields = ["affected_branches"]
     ordering = ["-when"]
+    readonly_fields = ["hashes_by_versions"]
 
 
 class BetaReleaseAdmin(PreReleaseAdminMixin, admin.ModelAdmin):
@@ -79,6 +80,7 @@ class SecurityIssueAdmin(admin.ModelAdmin):
     list_filter = ["severity"]
     search_fields = ["cve_year_number", "summary", "description", "commit_hash_main"]
     ordering = ["-cve_year_number"]
+    readonly_fields = ["hashes_by_branch"]
 
 
 class SecurityIssueReleasesThroughAdmin(admin.ModelAdmin):
