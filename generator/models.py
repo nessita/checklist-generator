@@ -307,11 +307,6 @@ class SecurityRelease(ReleaseEvent, models.Model):
     releaser = models.ForeignKey(Releaser, null=True, on_delete=models.SET_NULL)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    versions = ArrayField(models.CharField(max_length=100, null=True))
-    affected_branches = ArrayField(models.CharField(max_length=100, null=True))
-    # A mapping between CVEs and affected branches, each one contaning the
-    # hashes fixing the issue.
-    hashes = models.JSONField(default=dict, blank=True)
 
     checklist_template = "generator/release-security-skeleton.md"
     slug = "security-releases"
@@ -324,7 +319,7 @@ class SecurityRelease(ReleaseEvent, models.Model):
         return " / ".join(self.versions)
 
     @cached_property
-    def newversions(self):
+    def versions(self):
         return sorted(
             {
                 r.version
@@ -334,7 +329,7 @@ class SecurityRelease(ReleaseEvent, models.Model):
         )
 
     @cached_property
-    def newaffected_branches(self):
+    def affected_branches(self):
         releases = {
             r.feature_version
             for issue in self.securityissue_set.all()
@@ -375,7 +370,9 @@ class SecurityRelease(ReleaseEvent, models.Model):
 class SecurityIssueReleasesThrough(models.Model):
     securityissue = models.ForeignKey("SecurityIssue", on_delete=models.CASCADE)
     release = models.ForeignKey(Release, on_delete=models.CASCADE)
-    commit_hash = models.CharField(max_length=128, default="", blank=True, db_index=True)
+    commit_hash = models.CharField(
+        max_length=128, default="", blank=True, db_index=True
+    )
 
     class Meta:
         constraints = [
@@ -385,9 +382,9 @@ class SecurityIssueReleasesThrough(models.Model):
             ),
             models.UniqueConstraint(
                 fields=["commit_hash"],
-                name='unique_non_empty_commit_hash',
+                name="unique_non_empty_commit_hash",
                 condition=~models.Q(commit_hash=""),  # Exclude empty strings
-            )
+            ),
         ]
 
 
@@ -416,7 +413,9 @@ class SecurityIssue(models.Model):
     reporter = models.CharField(max_length=1024, blank=True)
     release = models.ForeignKey(SecurityRelease, on_delete=models.CASCADE)
     releases = models.ManyToManyField(Release, through=SecurityIssueReleasesThrough)
-    commit_hash_main = models.CharField(max_length=128, default="", blank=True, db_index=True)
+    commit_hash_main = models.CharField(
+        max_length=128, default="", blank=True, db_index=True
+    )
 
     def __str__(self):
         return f"Security issue for {self.cve_year_number}"

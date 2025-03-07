@@ -31,7 +31,9 @@ def populate_securityissue_hashes(apps, schema_editor):
             # add whatever was left
             for branch, commit_hash in per_cve_hashes.items():
                 SecurityIssueReleasesThrough.objects.create(
-                    securityissue=issue, release_id=branch, commit_hash=commit_hash or ""
+                    securityissue=issue,
+                    release_id=branch,
+                    commit_hash=commit_hash or "",
                 )
 
 

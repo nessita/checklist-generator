@@ -30,6 +30,7 @@ def render_checklist(request, queryset):
 
 class ReleaseAdmin(admin.ModelAdmin):
     list_display = ["version", "date", "is_lts"]
+    ordering = ["-version"]
 
 
 class ReleaserAdmin(admin.ModelAdmin):
@@ -60,7 +61,9 @@ class FeatureReleaseAdmin(ReleaseEventAdminMixin, admin.ModelAdmin):
 
 
 class SecurityReleaseAdmin(ReleaseEventAdminMixin, DynamicArrayMixin, admin.ModelAdmin):
-    list_display = ["versions", "newversions", "newaffected_branches", "when", "releaser"]
+    list_display = ["versions", "when", "releaser"]
+    search_fields = ["affected_branches"]
+    ordering = ["-when"]
 
 
 class BetaReleaseAdmin(PreReleaseAdminMixin, admin.ModelAdmin):
@@ -75,12 +78,18 @@ class SecurityIssueAdmin(admin.ModelAdmin):
     list_display = ["cve_year_number", "summary", "severity", "commit_hash_main"]
     list_filter = ["severity"]
     search_fields = ["cve_year_number", "summary", "description", "commit_hash_main"]
+    ordering = ["-cve_year_number"]
 
 
 class SecurityIssueReleasesThroughAdmin(admin.ModelAdmin):
     list_display = ["securityissue__cve_year_number", "release__version", "commit_hash"]
     list_filter = ["release__version"]
-    search_fields = ["securityissue__cve_year_number", "release__version", "commit_hash"]
+    search_fields = [
+        "securityissue__cve_year_number",
+        "release__version",
+        "commit_hash",
+    ]
+    ordering = ["-securityissue__cve_year_number", "release__version"]
 
 
 admin.site.register(FeatureRelease, FeatureReleaseAdmin)
