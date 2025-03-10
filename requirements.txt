@@ -6,11 +6,9 @@
 #
 asgiref==3.8.1
     # via django
-django==5.1.6
+django==5.1.7
     # via -r requirements.in
-django-better-admin-arrayfield==1.4.2
-    # via -r requirements.in
-psycopg==3.2.4
+psycopg==3.2.5
     # via -r requirements.in
 sqlparse==0.5.3
     # via django
