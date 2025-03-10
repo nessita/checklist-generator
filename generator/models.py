@@ -216,9 +216,6 @@ class ReleaseEvent:
             return release.version
         return "many"
 
-    def get_context_data(self):
-        return {"release": self, "title": self.__class__.__name__}
-
     def blogpost_link(self, slug=None):
         if slug is None:
             slug = self.slug
@@ -260,9 +257,6 @@ class PreRelease(ReleaseEvent, models.Model):
     feature_release = models.ForeignKey(FeatureRelease, on_delete=models.CASCADE)
     verbose_version = models.CharField(max_length=100)
 
-    class Meta:
-        abstract = True
-
     @cached_property
     def checklist_template(self):
         return f"generator/release-{self.status}-skeleton.md"
@@ -276,19 +270,7 @@ class PreRelease(ReleaseEvent, models.Model):
         return f"django-{self.final_version.replace('.', '')}-{self.status}-released"
 
     def get_context_data(self):
-        return super().get_context_data() | {"feature_release": self.feature_release}
-
-
-class AlphaRelease(PreRelease):
-    pass
-
-
-class BetaRelease(PreRelease):
-    pass
-
-
-class ReleaseCandidateRelease(PreRelease):
-    pass
+        return {"feature_release": self.feature_release}
 
 
 class BugFixRelease(ReleaseEvent, models.Model):
@@ -360,7 +342,7 @@ class SecurityRelease(ReleaseEvent, models.Model):
         ]
 
     def get_context_data(self):
-        extra = {
+        return {
             "cves": [
                 cve for cve in self.securityissue_set.all().order_by("cve_year_number")
             ],
@@ -369,7 +351,6 @@ class SecurityRelease(ReleaseEvent, models.Model):
             "affected_branches": self.affected_branches,
             "releaser": self.releaser,
         }
-        return super().get_context_data() | extra
 
     def populate_hashes(self, cve, overwrite=False, commit=True):
         cve_key = cve.cve_year_number

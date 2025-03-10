@@ -7,9 +7,8 @@ from django_better_admin_arrayfield.admin.mixins import DynamicArrayMixin
 from django_better_admin_arrayfield.models.fields import ArrayField
 
 from .models import (
-    BetaRelease,
     FeatureRelease,
-    ReleaseCandidateRelease,
+    PreRelease,
     Release,
     Releaser,
     SecurityIssue,
@@ -21,7 +20,7 @@ from .models import (
 def render_checklist(request, queryset):
     assert queryset.count() == 1, "A single item should be selected"
     instance = queryset.get()
-    context = instance.__dict__
+    context = {"release": instance, "title": instance.__class__.__name__, **instance.__dict__}
     if getattr(instance, "get_context_data", None) is not None:
         context.update(instance.get_context_data())
     checklist = render_to_string(instance.checklist_template, context, request=request)
@@ -51,7 +50,7 @@ class ReleaseEventAdminMixin:
         return render_checklist(request, queryset)
 
 
-class PreReleaseAdminMixin(ReleaseEventAdminMixin, admin.ModelAdmin):
+class PreReleaseAdmin(ReleaseEventAdminMixin, admin.ModelAdmin):
     list_display = ["feature_release"] + ReleaseEventAdminMixin.list_display
     list_filter = ["feature_release"] + ReleaseEventAdminMixin.list_filter
 
@@ -66,13 +65,6 @@ class SecurityReleaseAdmin(ReleaseEventAdminMixin, DynamicArrayMixin, admin.Mode
     ordering = ["-when"]
     readonly_fields = ["hashes_by_versions"]
 
-
-class BetaReleaseAdmin(PreReleaseAdminMixin, admin.ModelAdmin):
-    pass
-
-
-class ReleaseCandidateReleaseAdmin(PreReleaseAdminMixin, admin.ModelAdmin):
-    pass
 
 
 class SecurityIssueAdmin(admin.ModelAdmin):
@@ -95,8 +87,7 @@ class SecurityIssueReleasesThroughAdmin(admin.ModelAdmin):
 
 
 admin.site.register(FeatureRelease, FeatureReleaseAdmin)
-admin.site.register(BetaRelease, BetaReleaseAdmin)
-admin.site.register(ReleaseCandidateRelease, ReleaseCandidateReleaseAdmin)
+admin.site.register(PreRelease, PreReleaseAdmin)
 admin.site.register(Release, ReleaseAdmin)
 admin.site.register(Releaser, ReleaserAdmin)
 admin.site.register(SecurityRelease, SecurityReleaseAdmin)
