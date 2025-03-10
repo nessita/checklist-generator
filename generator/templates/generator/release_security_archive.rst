@@ -4,7 +4,7 @@
 
 {{ cve.summary }}.
 `Full description
-<{{ release.blogpost_link }}>`__
+<{{ instance.blogpost_link }}>`__
 {% for branch, hash in cve.hashes_by_branch %}
 {% if branch != 'main' %}* Django {{ branch }} :commit:`(patch) <{{ hash }}>`{% endif %}{% endfor %}
 {% endfor %}

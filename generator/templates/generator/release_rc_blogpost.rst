@@ -1,13 +1,15 @@
-Django {{ release.final_version }} release candidate 1 is the final opportunity for you to
-try out `{{ feature_release.tagline }}`__ before Django {{ release.final_version }} is released.
+Django {{ final_version }} release candidate 1 is the final opportunity for you to
+try out `{{ instance.feature_release.tagline }}`__ before Django {{ final_version }} is released.
 
-__ https://docs.djangoproject.com/en/{{ release.final_version }}/releases/{{ release.final_version }}/
+__ https://docs.djangoproject.com/en/dev/releases/{{ final_version }}/
 
-The release candidate stage marks the string freeze and the call for translators `to submit translations
+The release candidate stage marks the string freeze and the call for
+translators `to submit translations
 <https://docs.djangoproject.com/en/dev/internals/contributing/localizing/#translations>`_.
-Provided no major bugs are discovered that can't be solved in the next two weeks,
-Django {{ release.final_version }} will be released on or around {{ feature_release.when|date:"F j" }}.
-Any  delays will be communicated on the `on the Django forum <{{ feature_release.forum_post }}>`_.
+Provided no major bugs are discovered that can't be solved in the next two
+weeks, Django {{ final_version }} will be released on or around {{
+instance.feature_release.when|date:"F j" }}. Any  delays will be communicated
+on the `on the Django forum <{{ instance.feature_release.forum_post }}>`_.
 
 Please use this opportunity to help find and fix bugs (which should be reported
 to `the issue tracker <https://code.djangoproject.com/newticket>`_), you can

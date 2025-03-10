@@ -18,14 +18,14 @@ This issue has severity "{{ cve.severity }}" according to the Django security po
 
 Affected supported versions
 ===========================
-{% for branch in affected_branches %}
+{% for branch in instance.affected_branches %}
 * Django {{ branch }}{% endfor %}
 
 Resolution
 ==========
 
 Patches to resolve the issue have been applied to Django's
-{{ affected_branches|enumerate_items }} branches.
+{{ instance.affected_branches|enumerate_items }} branches.
 The patches may be obtained from the following changesets.
 {% for cve in cves %}
 {{ cve.headline_for_blogpost|rst_underline_for_headline:'-' }}

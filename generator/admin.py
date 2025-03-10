@@ -20,9 +20,18 @@ from .models import (
 def render_checklist(request, queryset):
     assert queryset.count() == 1, "A single item should be selected"
     instance = queryset.get()
-    context = {"release": instance, "title": instance.__class__.__name__, **instance.__dict__}
-    if getattr(instance, "get_context_data", None) is not None:
-        context.update(instance.get_context_data())
+    context = {
+        "instance": instance,
+        "releaser": instance.releaser,
+        "slug": instance.slug,
+        "version": instance.version,
+        "title": instance.__class__.__name__,
+        **instance.__dict__,
+    }
+    if (release := getattr(instance, "release", None)) is not None:
+        context["release"] = release
+    if (data := getattr(instance, "get_context_data", None)) is not None:
+        context.update(data)
     checklist = render_to_string(instance.checklist_template, context, request=request)
     return HttpResponse(checklist, content_type="text/markdown")
 
@@ -66,13 +75,12 @@ class SecurityReleaseAdmin(ReleaseEventAdminMixin, DynamicArrayMixin, admin.Mode
     readonly_fields = ["hashes_by_versions"]
 
 
-
 class SecurityIssueAdmin(admin.ModelAdmin):
     list_display = ["cve_year_number", "summary", "severity", "commit_hash_main"]
-    list_filter = ["severity"]
+    list_filter = ["severity", "release"]
     search_fields = ["cve_year_number", "summary", "description", "commit_hash_main"]
     ordering = ["-cve_year_number"]
-    readonly_fields = ["hashes_by_branch"]
+    readonly_fields = ["hashes_by_branch", "releases"]
 
 
 class SecurityIssueReleasesThroughAdmin(admin.ModelAdmin):

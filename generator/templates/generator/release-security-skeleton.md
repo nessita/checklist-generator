@@ -1,6 +1,7 @@
 {% load generator_extras %}
+{% with cves=instance.cves versions=instance.versions cves_length=instance.cves|length %}
 # Django Security Release: {{ versions|enumerate_items }} ({{ when }})
-{% with cves_length=cves|length %}
+
 ## 14 days before
 
 - [ ] Create issues in https://github.com/django/django-security/issues/
@@ -57,7 +58,7 @@
 
 ## 10 days before
 
-- [ ] Prepare patches targeting releases {{ versions|enumerate_items }}, and main
+- [ ] Prepare patches targeting all affected branches {{ instance.affected_branches|enumerate_items }}
   - `git format-patch HEAD~{{ cves_length }}`
   - e.g. https://github.com/django/django-security/pull/375
 
@@ -94,20 +95,23 @@
 ### Phase 0: apply patches and build binaries -- DO NOT PUSH NOR PUBLISH ANYTHING YET
 
 #### For `main`
-- [ ] Switch to the main branch:
+- [ ] Switch to the main branch and update it:
   - `git checkout main && git pull -v`
 - [ ] Apply patch
   - `git am path/to/patch/for/main`
-{% for version in versions %}
-#### For {{ version }}
-{% include 'generator/_build_release_binaries.md' %}
+{% for version, final_released in instance.affected_versions %}
+#### For `{{ version }}`{% if not final_released %} (at pre-release status)
+- [ ] Switch to the {{ version }} branch and update it:
+  - `git checkout {{ version|stable_branch }} && git pull -v`
+- [ ] Apply patch
+  - `git am path/to/patch/for/{{ version }}`
+{% else %}{% include 'generator/_build_release_binaries.md' %}{% endif %}
 {% endfor %}
 
 ### Phase 1: publish binaries -- ONLY 15 MINUTES BEFORE RELEASE TIME
 {% for version in versions %}
 #### For {{ version }}
-{% include 'generator/_make_release_public.md' %}
-{% endfor %}
+{% include 'generator/_make_release_public.md' %}{% endfor %}
 
 ### Phase 2: final updates
 - [ ] In the main branch, start release notes for the next version only for the latest stable branch!
@@ -150,7 +154,7 @@
   - Check links from local docs
       - `firefox _build/html/releases/security.html`
   - Backport security archive update to all branches!
-    {% for version in versions %}
+    {% for version, _ in instance.affected_versions %}
     - `git checkout {{ version|stable_branch }} && backport.sh {HASH}`
     {% endfor %}
   {% endwith %}
@@ -159,7 +163,7 @@
 
 - [ ] Push changes to `main` and any stable branch, including pre-releases:
   - `git checkout main && git log && git push -v`
-{% for version in versions %}
+{% for version, _ in instance.affected_versions %}
   - `git checkout {{ version|stable_branch }} && git log`
   - `git push -v`
 {% endfor %}
@@ -172,7 +176,7 @@
   - Body with short notice and link to blogpost for more details
 ```
 Details are available on the Django project weblog:
-{{ release.blogpost_link }}
+{{ instance.blogpost_link }}
 ```
 
 - [ ] Post in forum https://forum.djangoproject.com/t/django-release-announcements/655/
@@ -181,7 +185,7 @@ Details are available on the Django project weblog:
 ## Django security releases issued: {{ versions|enumerate_items }}
 
 :mega: Announcement:
-{{ release.blogpost_link }}
+{{ instance.blogpost_link }}
 
 :tada: Release notes:{% for version in versions %}
  * https://docs.djangoproject.com/en/dev/releases/{{ version }}{% endfor %}
@@ -192,7 +196,7 @@ Details are available on the Django project weblog:
   - Subject: `Django {{ cves|enumerate_cves }}`
   - Body includes link to blog and blogpost text
 - [ ] Close PRs in security repo linking hashes
-  {% regroup hashes_by_versions|dictsortreversed:"branch" by branch as items %}
+  {% regroup instance.hashes_by_versions|dictsortreversed:"branch" by branch as items %}
   {% for item in items %}
 #### For {{ item.grouper }}
 ```{% for i in item.list %}
@@ -201,7 +205,7 @@ Details are available on the Django project weblog:
   {% endfor %}
 - [ ] Close issues in security repo linking hashes
   - e.g. https://github.com/django/django-security/issues/376
-  {% regroup hashes_by_versions|dictsort:"cve" by cve as items %}
+  {% regroup instance.hashes_by_versions|dictsort:"cve" by cve as items %}
   {% for item in items %}
 #### For {{ item.grouper }}
 ```

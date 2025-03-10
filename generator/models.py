@@ -192,6 +192,14 @@ class Release(models.Model):  # This is the exact model from djangoproject.com
         return f"{self.major}.x"
 
     @cached_property
+    def stable_branch(self):
+        return f"stable/{self.feature_version}.x"
+
+    @cached_property
+    def commit_prefix(self):
+        return f"[{self.feature_version}.x]"
+
+    @cached_property
     def is_pre_release(self):
         return self.status != "f"
 
@@ -208,8 +216,34 @@ class Releaser(models.Model):
 
 class ReleaseEvent:
 
+    checklist_template = "generator/release-skeleton.md"
     release_status_code = {v: k for k, v in Release.STATUS_REVERSE.items()}
-    checklist_template = None
+
+    @cached_property
+    def blogpost_link(self, slug=None):
+        if slug is None:
+            slug = self.slug
+        when = self.when.strftime("%Y/%b/%d").lower()
+        return f"https://www.djangoproject.com/weblog/{when}/{slug}/"
+
+    @cached_property
+    def blogpost_template(self):
+        return f"generator/release_{self.status}_blogpost.rst"
+
+    @cached_property
+    def blogpost_summary(self):
+        return f"Django {self.version} has been released!"
+
+    @cached_property
+    def previous_status(self):
+        result = None
+        if self.status == "beta":
+            result = "alpha"
+        elif self.status == "rc":
+            result = "beta"
+        elif self.status == "final":
+            result = "rc"
+        return result
 
     @cached_property
     def status(self):
@@ -218,16 +252,19 @@ class ReleaseEvent:
         return ""
 
     @cached_property
+    def trove_classifier(self):
+        result = "Development Status :: 5 - Production/Stable"
+        if self.status == "alpha":
+            result = "Development Status :: 3 - Alpha"
+        elif self.status in ("beta", "rc"):
+            result = "Development Status :: 4 - Beta"
+        return result
+
+    @cached_property
     def version(self):
         if (release := getattr(self, "release", None)) is not None:
             return release.version
         return "many"
-
-    def blogpost_link(self, slug=None):
-        if slug is None:
-            slug = self.slug
-        when = self.when.strftime("%Y/%b/%d").lower()
-        return f"https://www.djangoproject.com/weblog/{when}/{slug}/"
 
 
 class FeatureRelease(ReleaseEvent, models.Model):
@@ -246,13 +283,20 @@ class FeatureRelease(ReleaseEvent, models.Model):
             "improvements</strong></i>."
         ),
     )
+    highlights = models.TextField(blank=True)
+    eom_release = models.ForeignKey(
+        Release, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    eol_release = models.ForeignKey(
+        Release, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
 
     def __str__(self):
         return f"{self.version} {self.tagline}"
 
     @property
     def slug(self):
-        return f"django-{self.final_version.replace('.', '')}-released"
+        return f"django-{self.version.replace('.', '')}-released"
 
 
 class PreRelease(ReleaseEvent, models.Model):
@@ -265,19 +309,23 @@ class PreRelease(ReleaseEvent, models.Model):
     verbose_version = models.CharField(max_length=100)
 
     @cached_property
-    def checklist_template(self):
-        return f"generator/release-{self.status}-skeleton.md"
+    def blogpost_summary(self):
+        return (
+            f"Today Django {self.verbose_version}, a preview/testing package for the "
+            f"upcoming Django {self.final_version} release, is available."
+        )
 
     @cached_property
     def final_version(self):
-        return self.feature_release.version
+        return self.release.feature_version
+
+    @cached_property
+    def forum_post(self):
+        return self.feature_release.forum_post
 
     @cached_property
     def slug(self):
         return f"django-{self.final_version.replace('.', '')}-{self.status}-released"
-
-    def get_context_data(self):
-        return {"feature_release": self.feature_release, "releaser": self.releaser}
 
 
 class BugFixRelease(ReleaseEvent, models.Model):
@@ -308,27 +356,41 @@ class SecurityRelease(ReleaseEvent, models.Model):
         return " / ".join(self.versions)
 
     @cached_property
-    def versions(self):
+    def affected_versions(self):
         return sorted(
             {
-                r.version
+                # (feature version, was there a final release for this version?)
+                (r.feature_version, r.date and self.when.date() >= r.date)
                 for issue in self.securityissue_set.all()
                 for r in issue.releases.all()
-                if r.date  # no r.date could mean pre-release?
             },
             reverse=True,
         )
 
     @cached_property
-    def affected_branches(self):
-        releases = {
-            r.feature_version
-            for issue in self.securityissue_set.all()
-            for r in issue.releases.all()
-        }
-        return ["main", *sorted(releases, reverse=True)]
+    def versions(self):
+        return [
+            feature_version
+            for (feature_version, final_released) in self.affected_versions
+            if final_released
+        ]
 
-    @property
+    @cached_property
+    def affected_branches(self):
+        return ["main"] + [
+            (
+                feature_version
+                if final_released
+                else f"{feature_version} (currently at pre-release status)"
+            )
+            for (feature_version, final_released) in self.affected_versions
+        ]
+
+    @cached_property
+    def cves(self):
+        return [cve for cve in self.securityissue_set.all().order_by("cve_year_number")]
+
+    @cached_property
     def hashes_by_versions(self):
         return [
             {
@@ -338,7 +400,9 @@ class SecurityRelease(ReleaseEvent, models.Model):
             }
             for sirt in SecurityIssueReleasesThrough.objects.select_related(
                 "securityissue", "release"
-            ).filter(securityissue__release_id=self.id).order_by("release__version")
+            )
+            .filter(securityissue__release_id=self.id)
+            .order_by("release__version")
         ] + [
             {
                 "branch": "main",
@@ -347,26 +411,6 @@ class SecurityRelease(ReleaseEvent, models.Model):
             }
             for issue in self.securityissue_set.all()
         ]
-
-    def get_context_data(self):
-        return {
-            "cves": [
-                cve for cve in self.securityissue_set.all().order_by("cve_year_number")
-            ],
-            "versions": self.versions,
-            "hashes_by_versions": self.hashes_by_versions,
-            "affected_branches": self.affected_branches,
-            "releaser": self.releaser,
-        }
-
-    def populate_hashes(self, cve, overwrite=False, commit=True):
-        cve_key = cve.cve_year_number
-        if cve_key not in self.hashes or overwrite:
-            self.hashes[cve_key] = {i: None for i in self.affected_branches}
-            if commit:
-                self.save(update_fields={"hashes"})
-                return True
-        return False
 
 
 class SecurityIssueReleasesThrough(models.Model):
@@ -454,8 +498,3 @@ class SecurityIssue(models.Model):
             raise ValidationError(
                 f'"Other type" should be blank for "{self.cve_type}".'
             )
-
-
-@receiver(post_save, sender=SecurityIssue)
-def populate_release_hashes(sender, instance, created, **kwargs):
-    instance.release.populate_hashes(instance, overwrite=created)

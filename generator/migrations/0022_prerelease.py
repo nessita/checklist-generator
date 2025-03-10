@@ -5,7 +5,6 @@ import generator.models
 from django.db import migrations, models
 
 
-
 def populate_preleases(apps, schema_editor):
     attrs = {
         "when",
