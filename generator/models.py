@@ -208,7 +208,14 @@ class Releaser(models.Model):
 
 class ReleaseEvent:
 
+    release_status_code = {v: k for k, v in Release.STATUS_REVERSE.items()}
     checklist_template = None
+
+    @cached_property
+    def status(self):
+        if (release := getattr(self, "release", None)) is not None:
+            return self.release_status_code[self.release.status]
+        return ""
 
     @cached_property
     def version(self):
@@ -270,7 +277,7 @@ class PreRelease(ReleaseEvent, models.Model):
         return f"django-{self.final_version.replace('.', '')}-{self.status}-released"
 
     def get_context_data(self):
-        return {"feature_release": self.feature_release}
+        return {"feature_release": self.feature_release, "releaser": self.releaser}
 
 
 class BugFixRelease(ReleaseEvent, models.Model):

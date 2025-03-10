@@ -1,4 +1,3 @@
-{% load partials %}
 Django {{ final_version }} beta 1 is now available. It represents the second
 stage in the {{ final_version }} release cycle and is an opportunity for you to
 try out the changes coming in Django {{ final_version }}.
@@ -26,4 +25,4 @@ bugs (which should be reported to `the issue tracker
 package from `our downloads page <https://www.djangoproject.com/download/>`_ or
 on PyPI.
 
-{% include "release_security_blogpost.rst#releaser-data" %}
+{% include "generator/release_security_blogpost.rst#releaser-data" %}
