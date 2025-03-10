@@ -45,7 +45,7 @@ class ReleaserAdmin(admin.ModelAdmin):
     list_display = ["user", "key_id", "key_url"]
 
 
-class ReleaseEventAdminMixin:
+class ReleaseChecklistAdminMixin:
     list_display = ["version", "when", "releaser"]
     list_filter = ["releaser"]
     actions = ["render_checklist"]
@@ -59,16 +59,18 @@ class ReleaseEventAdminMixin:
         return render_checklist(request, queryset)
 
 
-class PreReleaseAdmin(ReleaseEventAdminMixin, admin.ModelAdmin):
-    list_display = ["feature_release"] + ReleaseEventAdminMixin.list_display
-    list_filter = ["feature_release"] + ReleaseEventAdminMixin.list_filter
+class PreReleaseAdmin(ReleaseChecklistAdminMixin, admin.ModelAdmin):
+    list_display = ["feature_release"] + ReleaseChecklistAdminMixin.list_display
+    list_filter = ["feature_release"] + ReleaseChecklistAdminMixin.list_filter
 
 
-class FeatureReleaseAdmin(ReleaseEventAdminMixin, admin.ModelAdmin):
-    list_display = ReleaseEventAdminMixin.list_display + ["tagline"]
+class FeatureReleaseAdmin(ReleaseChecklistAdminMixin, admin.ModelAdmin):
+    list_display = ReleaseChecklistAdminMixin.list_display + ["tagline"]
 
 
-class SecurityReleaseAdmin(ReleaseEventAdminMixin, DynamicArrayMixin, admin.ModelAdmin):
+class SecurityReleaseAdmin(
+    ReleaseChecklistAdminMixin, DynamicArrayMixin, admin.ModelAdmin
+):
     list_display = ["versions", "when", "releaser"]
     search_fields = ["affected_branches"]
     ordering = ["-when"]

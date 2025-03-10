@@ -72,7 +72,6 @@ class Migration(migrations.Migration):
             options={
                 "abstract": False,
             },
-            bases=(generator.models.ReleaseEvent, models.Model),
         ),
         migrations.RunPython(populate_preleases, migrations.RunPython.noop),
     ]

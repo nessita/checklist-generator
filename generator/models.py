@@ -214,10 +214,17 @@ class Releaser(models.Model):
         return f"{self.key_id} <{self.key_url}>"
 
 
-class ReleaseEvent:
+class ReleaseChecklist(models.Model):
+    when = models.DateTimeField()
+    releaser = models.ForeignKey(Releaser, null=True, on_delete=models.SET_NULL)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     checklist_template = "generator/release-skeleton.md"
     release_status_code = {v: k for k, v in Release.STATUS_REVERSE.items()}
+
+    class Meta:
+        abstract = True
 
     @cached_property
     def blogpost_link(self, slug=None):
@@ -267,11 +274,7 @@ class ReleaseEvent:
         return "many"
 
 
-class FeatureRelease(ReleaseEvent, models.Model):
-    when = models.DateTimeField()
-    releaser = models.ForeignKey(Releaser, null=True, on_delete=models.SET_NULL)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+class FeatureRelease(ReleaseChecklist):
     release = models.OneToOneField(Release, null=True, on_delete=models.SET_NULL)
     forum_post = models.URLField(blank=True)
     tagline = models.CharField(
@@ -299,11 +302,7 @@ class FeatureRelease(ReleaseEvent, models.Model):
         return f"django-{self.version.replace('.', '')}-released"
 
 
-class PreRelease(ReleaseEvent, models.Model):
-    when = models.DateTimeField()
-    releaser = models.ForeignKey(Releaser, null=True, on_delete=models.SET_NULL)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+class PreRelease(ReleaseChecklist):
     release = models.OneToOneField(Release, null=True, on_delete=models.SET_NULL)
     feature_release = models.ForeignKey(FeatureRelease, on_delete=models.CASCADE)
     verbose_version = models.CharField(max_length=100)
@@ -317,7 +316,7 @@ class PreRelease(ReleaseEvent, models.Model):
 
     @cached_property
     def final_version(self):
-        return self.release.feature_version
+        return self.feature_release.version
 
     @cached_property
     def forum_post(self):
@@ -328,22 +327,14 @@ class PreRelease(ReleaseEvent, models.Model):
         return f"django-{self.final_version.replace('.', '')}-{self.status}-released"
 
 
-class BugFixRelease(ReleaseEvent, models.Model):
-    when = models.DateTimeField()
-    releaser = models.ForeignKey(Releaser, null=True, on_delete=models.SET_NULL)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+class BugFixRelease(ReleaseChecklist):
     release = models.OneToOneField(Release, null=True, on_delete=models.SET_NULL)
     feature_release = models.ForeignKey(FeatureRelease, on_delete=models.CASCADE)
 
     slug = "bugfix-releases"
 
 
-class SecurityRelease(ReleaseEvent, models.Model):
-    when = models.DateTimeField()
-    releaser = models.ForeignKey(Releaser, null=True, on_delete=models.SET_NULL)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+class SecurityRelease(ReleaseChecklist):
 
     checklist_template = "generator/release-security-skeleton.md"
     slug = "security-releases"
