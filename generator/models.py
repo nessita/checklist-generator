@@ -350,8 +350,8 @@ class SecurityRelease(ReleaseChecklist):
     def affected_versions(self):
         return sorted(
             {
-                # (feature version, was there a final release for this version?)
-                (r.feature_version, r.date and self.when.date() >= r.date)
+                # (feature version, real version, was there a final release?)
+                (r.feature_version, r.version, r.date and self.when.date() >= r.date)
                 for issue in self.securityissue_set.all()
                 for r in issue.releases.all()
             },
@@ -361,8 +361,8 @@ class SecurityRelease(ReleaseChecklist):
     @cached_property
     def versions(self):
         return [
-            feature_version
-            for (feature_version, final_released) in self.affected_versions
+            version
+            for (_, version, final_released) in self.affected_versions
             if final_released
         ]
 
@@ -374,7 +374,7 @@ class SecurityRelease(ReleaseChecklist):
                 if final_released
                 else f"{feature_version} (currently at pre-release status)"
             )
-            for (feature_version, final_released) in self.affected_versions
+            for (feature_version, _, final_released) in self.affected_versions
         ]
 
     @cached_property

@@ -58,7 +58,7 @@
 
 ## 10 days before
 
-- [ ] Prepare patches targeting all affected branches {{ instance.affected_branches|enumerate_items }}
+- [ ] Prepare patches targeting {{ instance.affected_branches|enumerate_items }}
   - `git format-patch HEAD~{{ cves_length }}`
   - e.g. https://github.com/django/django-security/pull/375
 
@@ -99,8 +99,8 @@
   - `git checkout main && git pull -v`
 - [ ] Apply patch
   - `git am path/to/patch/for/main`
-{% for version, final_released in instance.affected_versions %}
-#### For `{{ version }}`{% if not final_released %} (at pre-release status)
+{% for _, version, final_released in instance.affected_versions %}
+#### For {{ version }}{% if not final_released %} (at pre-release status)
 - [ ] Switch to the {{ version }} branch and update it:
   - `git checkout {{ version|stable_branch }} && git pull -v`
 - [ ] Apply patch
@@ -154,7 +154,7 @@
   - Check links from local docs
       - `firefox _build/html/releases/security.html`
   - Backport security archive update to all branches!
-    {% for version, _ in instance.affected_versions %}
+    {% for version, _, _ in instance.affected_versions %}
     - `git checkout {{ version|stable_branch }} && backport.sh {HASH}`
     {% endfor %}
   {% endwith %}
@@ -163,7 +163,7 @@
 
 - [ ] Push changes to `main` and any stable branch, including pre-releases:
   - `git checkout main && git log && git push -v`
-{% for version, _ in instance.affected_versions %}
+{% for version, _, _ in instance.affected_versions %}
   - `git checkout {{ version|stable_branch }} && git log`
   - `git push -v`
 {% endfor %}

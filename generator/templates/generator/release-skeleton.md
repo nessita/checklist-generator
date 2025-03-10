@@ -15,7 +15,7 @@
 {% include instance.blogpost_template %}
 ```
 
-## Release Day - ** THIS IS UNREVIEWED **
+## Release Day ** DOUBLE CHECK THIS LIST **
 
 - [ ] Update manpage
 - [ ] Make cosmetic edits to release notes
