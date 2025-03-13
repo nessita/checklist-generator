@@ -351,7 +351,7 @@ class SecurityRelease(ReleaseChecklist):
         return sorted(
             {
                 # (feature version, real version, was there a final release?)
-                (r.feature_version, r.version, r.date and self.when.date() >= r.date)
+                (r.feature_version, r.version, r.date and (self.when.date() >= r.date))
                 for issue in self.securityissue_set.all()
                 for r in issue.releases.all()
             },
@@ -440,6 +440,7 @@ class SecurityIssue(models.Model):
         default="Denial of Service",
     )
     severity = models.CharField(
+        max_length=128,
         choices=[(i, i.capitalize()) for i in ("low", "moderate", "high")],
         default="moderate",
     )
@@ -448,7 +449,11 @@ class SecurityIssue(models.Model):
     blogdescription = models.TextField()
 
     reporter = models.CharField(max_length=1024, blank=True)
-    release = models.ForeignKey(SecurityRelease, on_delete=models.CASCADE)
+    release = models.ForeignKey(
+        SecurityRelease,
+        help_text="Security Release that will fix this issue.",
+        on_delete=models.CASCADE,
+        )
     releases = models.ManyToManyField(Release, through=SecurityIssueReleasesThrough)
     commit_hash_main = models.CharField(
         max_length=128, default="", blank=True, db_index=True
