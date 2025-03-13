@@ -25,4 +25,4 @@ bugs (which should be reported to `the issue tracker
 package from `our downloads page <https://www.djangoproject.com/download/>`_ or
 on PyPI.
 
-{% include "generator/release_security_blogpost.rst#releaser-data" %}
+{% include "generator/_relaser_info.rst" %}
