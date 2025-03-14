@@ -75,12 +75,16 @@ WSGI_APPLICATION = "webapp.wsgi.application"
 # https://docs.djangoproject.com/en/dev/ref/settings/#databases
 
 DATABASES = {
-    "default": {
+    "_default": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": "checklist-generator",
         "USER": "nessita",
         "HOST": "",
-    }
+    },
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": "db.sqlite3",
+    },
 }
 
 

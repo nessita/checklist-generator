@@ -658,7 +658,7 @@ class SecurityIssue(models.Model):
     )
     summary = models.CharField(max_length=1024)
     description = models.TextField(help_text=DESCRIPTION_HELP_TEXT)
-    blogdescription = models.TextField()
+    blogdescription = models.TextField(blank=True)
 
     reporter = models.CharField(max_length=1024, blank=True)
     release = models.ForeignKey(
