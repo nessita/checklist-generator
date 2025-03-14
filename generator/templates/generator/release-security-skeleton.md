@@ -16,7 +16,7 @@
   - Number of vulnerabilities reported or IDs requested (1-10) info: `{{ cves_length }}`
   - I have verified that this vulnerability is not in a CNA-covered product: `Yes`
   - I have verified that the vulnerability has not already been assigned a CVE ID: `Yes`
-  {% for cve in cves %}
+  {% for cve in cves %}{% with releases=cve.releases.all %}
   - For issue **{{ cve.summary }}**:
     - Vulnerability type info: `{{ cve.cve_type }}`
     {% if cve.other_type %}
@@ -24,9 +24,9 @@
     {% endif %}
     - Vendor of the product(s) info: `djangoproject`
     - Affected product(s)/code base (SPLIT in product and version (X before Y) in rows!):
-      ```{% for version in versions %}
+      ```{% for release in releases %}
       [row 1] Django
-      [row 2] {{ version|format_version_for_cve }}
+      [row 2] {{ release|format_release_for_cve }}
       {% if not forloop.last %}---------- Click [+] Add ----------{% endif %}{% endfor %}```
     - Has vendor confirmed or acknowledged the vulnerability? `Yes`
     - Attack type info: `{{ cve.attack_type }}`
@@ -35,7 +35,7 @@
     - Attack vector(s): *leave blank*
     - Suggested description of the vulnerability for use in the CVE info:
       ```
-      An issue was discovered in {{ versions|format_versions_for_cves }}.
+      An issue was discovered in {{ releases|format_releases_for_cves }}.
       {{ cve.description }}
       ```
     - Discoverer(s)/Credits info: `{{ cve.reporter }}`
@@ -44,7 +44,7 @@
       https://groups.google.com/g/django-announce
       https://docs.djangoproject.com/en/dev/releases/security/
       ```
-  {% endfor %}
+  {% endwith %}{% endfor %}
 - [ ] Write blogpost draft
   - Include REPORTER and severity!
   - e.g. https://www.djangoproject.com/admin/blog/entry/706/change/
@@ -99,23 +99,23 @@
   - `git checkout main && git pull -v`
 - [ ] Apply patch
   - `git am path/to/patch/for/main`
-{% for _, version, final_released in instance.affected_versions %}
-#### For {{ version }}{% if not final_released %} (at pre-release status)
-- [ ] Switch to the {{ version }} branch and update it:
-  - `git checkout {{ version|stable_branch }} && git pull -v`
+{% for release in instance.affected_releases %}
+#### For {{ release.version }}{% if release.is_pre_release %} (at pre-release {{ release.get_status_display }} status)
+- [ ] Switch to the {{ release.feature_version }} branch and update it:
+  - `git checkout {{ release.stable_branch }} && git pull -v`
 - [ ] Apply patch
-  - `git am path/to/patch/for/{{ version }}`
+  - `git am path/to/patch/for/{{ release.version }}`
 {% else %}{% include 'generator/_build_release_binaries.md' %}{% endif %}
 {% endfor %}
 
 ### Phase 1: publish binaries -- ONLY 15 MINUTES BEFORE RELEASE TIME
-{% for version in versions %}
-#### For {{ version }}
-{% include 'generator/_make_release_public.md' %}{% endfor %}
+{% for release in instance.affected_releases %}{% if not release.is_pre_release %}
+#### For {{ release.version }}
+{% include 'generator/_make_release_public.md' %}{% endif %}{% endfor %}
 
 ### Phase 2: final updates
 - [ ] In the main branch, start release notes for the next version only for the latest stable branch!
-  {% with next_version=versions.0|next_version %}
+  {% with next_version=instance.latest_release|next_version %}
   - `git checkout main`
   - Edit `docs/releases/index.txt` and add an entry for `{{ next_version }}`
   - Create empty file for release at `docs/releases/{{ next_version }}.txt`
@@ -154,8 +154,8 @@
   - Check links from local docs
       - `firefox _build/html/releases/security.html`
   - Backport security archive update to all branches!
-    {% for version, _, _ in instance.affected_versions %}
-    - `git checkout {{ version|stable_branch }} && backport.sh {HASH}`
+    {% for release in instance.affected_releases %}
+    - `git checkout {{ release.stable_branch }} && backport.sh {HASH}`
     {% endfor %}
   {% endwith %}
 
@@ -163,8 +163,8 @@
 
 - [ ] Push changes to `main` and any stable branch, including pre-releases:
   - `git checkout main && git log && git push -v`
-{% for version, _, _ in instance.affected_versions %}
-  - `git checkout {{ version|stable_branch }} && git log`
+{% for release in instance.affected_releases %}
+  - `git checkout {{ release.stable_branch }} && git log`
   - `git push -v`
 {% endfor %}
 - [ ] Push all the new tags at once

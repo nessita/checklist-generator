@@ -1,8 +1,13 @@
 import datetime
+import re
+from functools import total_ordering
+from pathlib import Path
 
 from django.contrib.auth.models import User
 from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
+from django.core.files.storage import FileSystemStorage
+from django.core.validators import RegexValidator
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -105,6 +110,131 @@ Examples:
 """
 
 
+class ReleaseManager(models.Manager):
+    def published(self, at=None):
+        """
+        List of published releases at a given date (today by default).
+
+        A published release has a suitable publication date and is active.
+
+        The resulting queryset is sorted by decreasing version number.
+
+        This is expected to return the latest micro-release in each series.
+        """
+        if at is None:
+            at = datetime.date.today()
+        # .filter(date__lte=at) excludes releases where date IS NULL because
+        # a version without a date is considered unreleased.
+        # .exclude(eol_date__lte=at) includes releases where eol_date IS NULL
+        # because a version without an end of life date is still supported.
+        return (
+            self.filter(major__gte=1, date__lte=at, is_active=True)
+            .exclude(eol_date__lte=at)
+            .order_by("-major", "-minor", "-micro", "-status")
+        )
+
+    def supported(self, at=None):
+        """
+        List of supported final releases.
+        """
+        return self.published(at).filter(status="f")
+
+    def unsupported(self, at=None):
+        """
+        List of unsupported final releases at a given date (today by default).
+
+        This returns a list, not a queryset, because it requires logic that is
+        hard to express in SQL.
+
+        Pre-1.0 releases are ignored.
+        """
+        if at is None:
+            at = datetime.date.today()
+        excluded_major_minor = {
+            (release.major, release.minor) for release in self.supported(at)
+        }
+        unsupported = []
+        for release in self.filter(major__gte=1, eol_date__lte=at, status="f").order_by(
+            "-major", "-minor", "-micro"
+        ):
+            if (release.major, release.minor) not in excluded_major_minor:
+                excluded_major_minor.add((release.major, release.minor))
+                unsupported.append(release)
+        return unsupported
+
+    def current(self, at=None):
+        """
+        Current release.
+        """
+        return self.supported(at).first()
+
+    def previous(self, at=None):
+        """
+        Previous release.
+        """
+        return self.supported(at)[1:].first()
+
+    def lts(self, at=None):
+        """
+        List of supported LTS releases.
+        """
+        return self.supported(at).filter(is_lts=True)
+
+    def current_lts(self, at=None):
+        """
+        Current LTS release.
+        """
+        return self.lts(at).first()
+
+    def previous_lts(self, at=None):
+        """
+        Previous LTS release or None if there's only one LTS release currently.
+        """
+        return self.lts(at)[1:].first()
+
+    def preview(self, at=None):
+        """
+        Preview release or None if there isn't a preview release currently.
+        """
+        return self.published(at).exclude(status="f").first()
+
+    def current_version(self):
+        current_version = cache.get(Release.DEFAULT_CACHE_KEY, None)
+        if current_version is None:
+            current_release = self.current()
+            if current_release is None:
+                current_version = ""
+            else:
+                current_version = current_release.version
+            cache.set(
+                Release.DEFAULT_CACHE_KEY,
+                current_version,
+                settings.CACHE_MIDDLEWARE_SECONDS,
+            )
+        return current_version
+
+
+def get_storage():
+    """
+    Return a FileSystemStorage that allows file name overwrites.
+
+    The actual file name of release artifacts (tarball, wheel, ...) should not
+    be modified on upload (i.e. no prefix should be added).
+    """
+    return FileSystemStorage(allow_overwrite=True)
+
+
+def upload_to_artifact(release, filename):
+    major, minor = release.version_tuple[:2]
+    return f"releases/{major}.{minor}/{filename}"
+
+
+def upload_to_checksum(release, filename):
+    version = get_version(release.version_tuple)
+    return f"pgp/Django-{version}.checksum.txt"
+
+
+@total_ordering
 class Release(models.Model):  # This is the exact model from djangoproject.com
     STATUS_CHOICES = (
         ("a", "alpha"),
@@ -120,6 +250,14 @@ class Release(models.Model):  # This is the exact model from djangoproject.com
     }
 
     version = models.CharField(max_length=16, primary_key=True)
+    is_active = models.BooleanField(
+        help_text=(
+            "Set this release as active. A release is considered active only "
+            "if its date is today or in the past and this flag is enabled. "
+            "Enable this flag when the release is available on PyPI."
+        ),
+        default=False,
+    )
     date = models.DateField(
         "Release date",
         null=True,
@@ -145,16 +283,40 @@ class Release(models.Model):  # This is the exact model from djangoproject.com
     iteration = models.PositiveSmallIntegerField(editable=False)
     is_lts = models.BooleanField(
         "Long Term Support",
-        help_text='Is this an (<abbr title="Long Term Support">LTS</abbr>) release?',
+        help_text=(
+            'Is this a release for an <abbr title="Long Term Support">LTS</abbr> Django '
+            "version (e.g. 5.2a1, 5.2, 5.2.4)?"
+        ),
         default=False,
     )
+    # Artifacts.
+    tarball = models.FileField(
+        "Tarball artifact as a .tar.gz file",
+        storage=get_storage,
+        upload_to=upload_to_artifact,
+        blank=True,
+    )
+    wheel = models.FileField(
+        "Wheel artifact as a .whl file",
+        storage=get_storage,
+        upload_to=upload_to_artifact,
+        blank=True,
+    )
+    checksum = models.FileField(
+        "Signed checksum as a .asc file",
+        storage=get_storage,
+        upload_to=upload_to_checksum,
+        blank=True,
+    )
+
+    objects = ReleaseManager()
 
     def save(self, *args, **kwargs):
         self.major, self.minor, self.micro, status, self.iteration = self.version_tuple
         self.status = self.STATUS_REVERSE[status]
         super().save(*args, **kwargs)
         # Each micro release EOLs the previous one in the same series.
-        if self.status == "f" and self.micro > 0:
+        if self.status == "f" and self.micro > 0 and self.is_active:
             (
                 type(self)
                 .objects.filter(
@@ -163,8 +325,29 @@ class Release(models.Model):  # This is the exact model from djangoproject.com
                 .update(eol_date=self.date)
             )
 
+    # def __eq__(self, other):
+    #     return self.version == other.version
+
+    def __lt__(self, other):
+        return (self.major, self.minor, self.micro) < (
+            other.major,
+            other.minor,
+            other.micro,
+        )
+
+    def __hash__(self):
+        return hash((self.major, self.minor, self.micro))
+
     def __str__(self):
         return self.version
+
+    @property
+    def is_published(self):
+        return (
+            self.is_active
+            and self.date is not None
+            and self.date <= datetime.date.today()
+        )
 
     @cached_property
     def version_tuple(self):
@@ -202,6 +385,40 @@ class Release(models.Model):  # This is the exact model from djangoproject.com
     @cached_property
     def is_pre_release(self):
         return self.status != "f"
+
+    def clean(self):
+        if self.is_published and not self.tarball:
+            raise ValidationError(
+                {"tarball": "This field is required when the release is active."}
+            )
+
+        if (self.tarball or self.wheel) and not self.checksum:
+            raise ValidationError(
+                {
+                    "checksum": (
+                        "This field is required when an artifact has been uploaded."
+                    )
+                }
+            )
+
+        if self.tarball:
+            try:
+                self.validate_artifact_name(self.tarball.name, suffix=".tar.gz")
+            except ValidationError as e:
+                raise ValidationError({"tarball": e})
+
+        if self.wheel:
+            try:
+                self.validate_artifact_name(self.wheel.name, suffix="-py3-none-any.whl")
+            except ValidationError as e:
+                raise ValidationError({"wheel": e})
+
+    def validate_artifact_name(self, name, suffix):
+        name = Path(name).name  # strip any folder name if present
+        version = get_version(self.version_tuple)
+        regex = f"^[Dd]jango-{re.escape(version)}{re.escape(suffix)}$"
+        message = f"Filename {name} does not match pattern {regex}."
+        return RegexValidator(regex, message=message, code="invalid_name")(name)
 
 
 class Releaser(models.Model):
@@ -343,43 +560,38 @@ class SecurityRelease(ReleaseChecklist):
         return f"Security release on {self.when}"
 
     @cached_property
-    def version(self):
-        return " / ".join(self.versions)
-
-    @cached_property
-    def affected_versions(self):
-        return sorted(
-            {
-                # (feature version, real version, was there a final release?)
-                (r.feature_version, r.version, r.date and (self.when.date() >= r.date))
-                for issue in self.securityissue_set.all()
-                for r in issue.releases.all()
-            },
-            reverse=True,
-        )
-
-    @cached_property
-    def versions(self):
-        return [
-            version
-            for (_, version, final_released) in self.affected_versions
-            if final_released
-        ]
+    def cves(self):
+        return [cve for cve in self.securityissue_set.all().order_by("cve_year_number")]
 
     @cached_property
     def affected_branches(self):
         return ["main"] + [
             (
-                feature_version
-                if final_released
-                else f"{feature_version} (currently at pre-release status)"
+                r.feature_version
+                if not r.is_pre_release
+                else f"{r.feature_version} (currently at {r.get_status_display()} status)"
             )
-            for (feature_version, _, final_released) in self.affected_versions
+            for r in self.affected_releases
         ]
 
     @cached_property
-    def cves(self):
-        return [cve for cve in self.securityissue_set.all().order_by("cve_year_number")]
+    def affected_releases(self):
+        return sorted(
+            {r for issue in self.securityissue_set.all() for r in issue.releases.all()},
+            reverse=True,
+        )
+
+    @cached_property
+    def version(self):
+        return " / ".join(self.versions)
+
+    @cached_property
+    def versions(self):
+        return [r.version for r in self.affected_releases if not r.is_pre_release]
+
+    @cached_property
+    def latest_release(self):
+        return [r for r in self.affected_releases if not r.is_pre_release][0]
 
     @cached_property
     def hashes_by_versions(self):
@@ -453,7 +665,7 @@ class SecurityIssue(models.Model):
         SecurityRelease,
         help_text="Security Release that will fix this issue.",
         on_delete=models.CASCADE,
-        )
+    )
     releases = models.ManyToManyField(Release, through=SecurityIssueReleasesThrough)
     commit_hash_main = models.CharField(
         max_length=128, default="", blank=True, db_index=True

@@ -36,7 +36,7 @@
 - [ ] Execute ALL commands BUT upload to PyPI
   - `gpg --clearsign -u 124304+nessita@users.noreply.github.com --digest-algo SHA256 <path-to-checksums-folder>/Django-{{ version }}.checksum.txt`
   - `scp -i ~/.ssh/dali/id_rsa <path-to-checksums-folder>/Django-{{ version }}.checksum.txt.asc www@origin.djangoproject.com:/home/www/www/media/pgp/Django-{{ version }}.checksum.txt`
-  - `scp -i ~/.ssh/dali/id_rsa dist/Django-* www@origin.djangoproject.com:/home/www/www/media/releases/{{ version|major_minor_version }}`
+  - `scp -i ~/.ssh/dali/id_rsa dist/Django-* www@origin.djangoproject.com:/home/www/www/media/releases/{{ release.feature_version }}`
   - `git tag --sign --message="Tag {{ version }}" {{ version }}`
   - `git tag --verify {{ version }}`
   - `git push --tags`

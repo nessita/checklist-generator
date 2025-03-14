@@ -7,38 +7,8 @@ register = template.Library()
 
 
 @register.filter
-def split_patch_version(version):
-    return version.rsplit(".", 1)
-
-
-@register.filter
-def major_minor_version(version):
-    if version.count(".") > 1:
-        result = split_patch_version(version)[0]
-    else:
-        result = version
-    return result
-
-
-@register.filter
-def patch_version(version):
-    return split_patch_version(version)[-1]
-
-
-@register.filter
-def series(version):
-    return f"{major_minor_version(version)}.x"
-
-
-@register.filter
-def stable_branch(version):
-    return f"stable/{series(version)}"
-
-
-@register.filter
-def next_version(version):
-    version, patch = split_patch_version(version)
-    return f"{version}.{int(patch)+1}"
+def next_version(release):
+    return f"{release.major}.{release.minor}.{release.micro+1}"
 
 
 @register.filter
@@ -50,6 +20,7 @@ def next_release_date(value):
 def enumerate_items(items, item_formatter=None):
     if item_formatter is not None:
         items = [item_formatter(item) for item in items]
+    assert len(items) > 0, f"{items=} should have at least one element."
     *rest, last = items
     if not rest:
         return last
@@ -64,13 +35,13 @@ def enumerate_cves(cves, field="cve_year_number"):
 
 
 @register.filter
-def format_version_for_cve(version):
-    return f"{major_minor_version(version)} before {version}"
+def format_release_for_cve(release):
+    return f"{release.feature_version} before {release.version}"
 
 
 @register.filter
-def format_versions_for_cves(versions):
-    return enumerate_items(versions, item_formatter=format_version_for_cve)
+def format_releases_for_cves(releases):
+    return enumerate_items(releases, item_formatter=format_release_for_cve)
 
 
 @register.filter

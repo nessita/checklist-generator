@@ -8,12 +8,12 @@ def populate_releasers(apps, schema_editor):
     Releaser = apps.get_model("generator", "Releaser")
 
     sarahboyce = Releaser.objects.create(
-        user=User.objects.get(username="sarahboyce"),
+        user=User.objects.get_or_create(username="sarahboyce")[0],
         key_id="3955B19851EA96EF",
         key_url="https://github.com/sarahboyce.gpg",
     )
     nessita = Releaser.objects.create(
-        user=User.objects.get(username="nessita"),
+        user=User.objects.get_or_create(username="nessita")[0],
         key_id="2EE82A8D9470983E",
         key_url="https://github.com/nessita.gpg",
     )
