@@ -61,7 +61,21 @@
 Details are available on the Django project weblog:
 {{ instance.blogpost_link }}
 ```
-{% if self.status == "c" %}
+{% if release.status != "f" %}
+- [ ] Update the translation catalogs:
+  - Make a new branch from the recently released stable branch:
+    - `git checkout {{ release.stable_branch }} && git pull -v`
+    - `git checkout -b update-translations-catalog-{{ release.feature_version }}.x`
+  - Ensure that the release's dedicated virtual environment is enabled and run the following:
+      - `cd django`
+      - `django-admin makemessages -l en --domain=djangojs --domain=django`
+  - Review the diff before pushing and avoid committing changes to the `.po` files without any new translations.
+  - e.g. https://github.com/django/django/commit/d2b1ec551567c208abfdd21b27ff6d08ae1a6371.
+  - Make a pull request against the corresponding stable branch and merge once approved.
+  - Forward port the updated source translations to the `main` branch.
+  - e.g. https://github.com/django/django/commit/aed303aff57ac990894b6354af001b0e8ea55f71.
+{% endif %}
+{% if release.status == "c" %}
 - [ ] Post on Forum calling for translations!
   - e.g. https://forum.djangoproject.com/t/django-5-0-string-freeze-is-in-effect-translations-needed/25511
 {% endif %}
