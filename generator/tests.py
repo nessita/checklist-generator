@@ -5,7 +5,14 @@ from django.contrib.auth.models import User
 from django.test import RequestFactory, TestCase, override_settings
 
 from .admin import render_checklist
-from .models import Release, Releaser, SecurityIssue, SecurityRelease
+from .models import (
+    FeatureRelease,
+    PreRelease,
+    Release,
+    Releaser,
+    SecurityIssue,
+    SecurityRelease,
+)
 
 
 class BaseChecklistTestCaseMixin:
@@ -71,3 +78,43 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
         assert release is not None
         issue.releases.add(release)
         return checklist
+
+
+class PreReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
+    checklist_class = PreRelease
+
+    def make_checklist(self, **kwargs):
+        future = date.today() + timedelta(days=75)
+        feature_release = FeatureRelease.objects.create(
+            when=future, tagline="collection"
+        )
+        return super().make_checklist(feature_release=feature_release, **kwargs)
+
+    def test_render_checklist(self):
+        status_to_version = {
+            "a": "alpha",
+            "b": "beta",
+            "rc": "release candidate",
+        }
+        for status, version in status_to_version.items():
+            release = Release.objects.create(
+                version=f"5.2{status}1", date=date(2025, 4, 2), is_lts=True
+            )
+            with self.subTest(version=version):
+                checklist_content = self.do_render_checklist(
+                    verbose_version=version,
+                    release=release,
+                )
+                self.assertIn(
+                    "- [ ] Update the translation catalogs:", checklist_content
+                )
+                if status == "rc":
+                    self.assertIn(
+                        "- [ ] Post on Forum calling for translations!",
+                        checklist_content,
+                    )
+                else:
+                    self.assertNotIn(
+                        "- [ ] Post on Forum calling for translations!",
+                        checklist_content,
+                    )
