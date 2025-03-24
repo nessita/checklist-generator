@@ -51,7 +51,7 @@
   - `twine upload dist/*`
   - https://pypi.org/project/Django/{{ version }}/
 - [ ] Go to the[ Add release page in the admin](https://www.djangoproject.com/admin/releases/release/add/), enter the new release number
-  - {{ version }} ({% if not feature_release.is_lts %}non {% endif %}LTS)
+  - {{ version }} ({% if not release.is_lts %}non {% endif %}LTS)
   - https://www.djangoproject.com/admin/releases/release/{{ version }}/change/
 - [ ] Publish blog post
 - [ ] Post the release announcement to the [django-announce](https://docs.djangoproject.com/en/dev/internals/mailing-lists/#django-announce-mailing-list) and in the Django Forum.

@@ -36,7 +36,7 @@ The following releases have been issued
 =======================================
 {% for version in versions %}
 * Django {{ version }} (`download Django {{ version }}
-  <https://www.djangoproject.com/m/releases/{{ release.feature_version }}/Django-{{ version }}.tar.gz>`_ |
+  <https://www.djangoproject.com/m/releases/{{ version|make_list|slice:":3"|join:"" }}/Django-{{ version }}.tar.gz>`_ |
   `{{ version }} checksums
   <https://www.djangoproject.com/m/pgp/Django-{{ version }}.checksum.txt>`_){% endfor %}
 

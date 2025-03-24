@@ -75,7 +75,7 @@
 - [ ] Post announcement in mailing list (without details in django-announce):
     ```
     Django versions {{ versions|enumerate_items }} will be released on
-    {{ when.date|date:"l, F j" }} around {{ when.time|date:"H:i" }} UTC.
+    {{ instance.when.date|date:"l, F j" }} around {{ instance.when.time|date:"H:i" }} UTC.
     {% if cves_length == 1 %}
     They will fix one security defect with severity "{{ cves.0.severity }}".
     {% else %}
