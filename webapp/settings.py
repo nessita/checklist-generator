@@ -149,3 +149,9 @@ LOGGING = {
 }
 
 FORMS_URLFIELD_ASSUME_HTTPS = True
+
+
+try:
+    from .local_settings import *  # noqa
+except ImportError:
+    pass
