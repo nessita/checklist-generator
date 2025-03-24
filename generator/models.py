@@ -4,7 +4,6 @@ from functools import total_ordering
 from pathlib import Path
 
 from django.contrib.auth.models import User
-from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.core.files.storage import FileSystemStorage
 from django.core.validators import RegexValidator
