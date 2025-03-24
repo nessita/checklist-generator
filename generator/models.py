@@ -1,15 +1,9 @@
 import datetime
-import re
 from functools import total_ordering
-from pathlib import Path
 
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from django.core.files.storage import FileSystemStorage
-from django.core.validators import RegexValidator
 from django.db import models
-from django.db.models.signals import post_save
-from django.dispatch import receiver
 from django.utils.functional import cached_property
 
 from .utils import get_loose_version_tuple
@@ -197,41 +191,6 @@ class ReleaseManager(models.Manager):
         """
         return self.published(at).exclude(status="f").first()
 
-    def current_version(self):
-        current_version = cache.get(Release.DEFAULT_CACHE_KEY, None)
-        if current_version is None:
-            current_release = self.current()
-            if current_release is None:
-                current_version = ""
-            else:
-                current_version = current_release.version
-            cache.set(
-                Release.DEFAULT_CACHE_KEY,
-                current_version,
-                settings.CACHE_MIDDLEWARE_SECONDS,
-            )
-        return current_version
-
-
-def get_storage():
-    """
-    Return a FileSystemStorage that allows file name overwrites.
-
-    The actual file name of release artifacts (tarball, wheel, ...) should not
-    be modified on upload (i.e. no prefix should be added).
-    """
-    return FileSystemStorage(allow_overwrite=True)
-
-
-def upload_to_artifact(release, filename):
-    major, minor = release.version_tuple[:2]
-    return f"releases/{major}.{minor}/{filename}"
-
-
-def upload_to_checksum(release, filename):
-    version = get_version(release.version_tuple)
-    return f"pgp/Django-{version}.checksum.txt"
-
 
 @total_ordering
 class Release(models.Model):  # This is the exact model from djangoproject.com
@@ -289,24 +248,9 @@ class Release(models.Model):  # This is the exact model from djangoproject.com
         default=False,
     )
     # Artifacts.
-    tarball = models.FileField(
-        "Tarball artifact as a .tar.gz file",
-        storage=get_storage,
-        upload_to=upload_to_artifact,
-        blank=True,
-    )
-    wheel = models.FileField(
-        "Wheel artifact as a .whl file",
-        storage=get_storage,
-        upload_to=upload_to_artifact,
-        blank=True,
-    )
-    checksum = models.FileField(
-        "Signed checksum as a .asc file",
-        storage=get_storage,
-        upload_to=upload_to_checksum,
-        blank=True,
-    )
+    tarball = models.FileField("Tarball artifact as a .tar.gz file", blank=True)
+    wheel = models.FileField("Wheel artifact as a .whl file", blank=True)
+    checksum = models.FileField("Signed checksum as a .asc file", blank=True)
 
     objects = ReleaseManager()
 
@@ -400,25 +344,6 @@ class Release(models.Model):  # This is the exact model from djangoproject.com
                 }
             )
 
-        if self.tarball:
-            try:
-                self.validate_artifact_name(self.tarball.name, suffix=".tar.gz")
-            except ValidationError as e:
-                raise ValidationError({"tarball": e})
-
-        if self.wheel:
-            try:
-                self.validate_artifact_name(self.wheel.name, suffix="-py3-none-any.whl")
-            except ValidationError as e:
-                raise ValidationError({"wheel": e})
-
-    def validate_artifact_name(self, name, suffix):
-        name = Path(name).name  # strip any folder name if present
-        version = get_version(self.version_tuple)
-        regex = f"^[Dd]jango-{re.escape(version)}{re.escape(suffix)}$"
-        message = f"Filename {name} does not match pattern {regex}."
-        return RegexValidator(regex, message=message, code="invalid_name")(name)
-
 
 class Releaser(models.Model):
     # Eventually a djangoproject.com User.
@@ -471,7 +396,7 @@ class ReleaseChecklist(models.Model):
     @cached_property
     def status(self):
         if (release := getattr(self, "release", None)) is not None:
-            return self.release_status_code[self.release.status]
+            return self.release_status_code[release.status]
         return ""
 
     @cached_property
@@ -551,7 +476,6 @@ class BugFixRelease(ReleaseChecklist):
 
 
 class SecurityRelease(ReleaseChecklist):
-
     checklist_template = "generator/release-security-skeleton.md"
     slug = "security-releases"
 
