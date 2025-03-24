@@ -1,4 +1,5 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from uuid import uuid4
 
 from django.contrib.auth.models import User
 from django.test import RequestFactory, TestCase, override_settings
@@ -13,7 +14,7 @@ class BaseChecklistTestCaseMixin:
 
     def make_releaser(self):
         return Releaser.objects.create(
-            user=User.objects.create(username="releaser"),
+            user=User.objects.create(username=f"releaser-{uuid4()}"),
             key_id="1234567890ABCDEF",
             key_url="https://github.com/releaser.gpg",
         )
@@ -36,15 +37,26 @@ class BaseChecklistTestCaseMixin:
             }
         ]
     )
-    def test_render_checklist(self):
-        releaser = self.make_releaser()
-        future = date.today() + timedelta(days=10)
-        instance = self.make_checklist(releaser=releaser, when=future)
+    def do_render_checklist(self, releaser=None, when=None, **checklist_kwargs):
+        if releaser is None:
+            releaser = self.make_releaser()
+        if when is None:
+            when = datetime.now() + timedelta(days=10)
+        instance = self.make_checklist(releaser=releaser, when=when, **checklist_kwargs)
         request = self.request_factory.get("/")
 
-        result = render_checklist(request, [instance])
+        response = render_checklist(request, [instance])
+        result = response.content.decode("utf-8")
+        idx = result.find("INVALID")
+        if idx != -1:
+            start = max(idx - 10, 0)
+            end = min(start + 1000, len(result))
+            fragment = result[start:end]
+            self.fail(f"'INVALID' unexpectedly found in {fragment}")
+        return result
 
-        self.assertNotIn("INVALID", result)
+    def test_render_checklist(self):
+        self.do_render_checklist()
 
 
 class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
