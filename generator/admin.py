@@ -3,9 +3,6 @@ from django.http import HttpResponse
 from django.template import RequestContext
 from django.template.loader import render_to_string
 
-from django_better_admin_arrayfield.admin.mixins import DynamicArrayMixin
-from django_better_admin_arrayfield.models.fields import ArrayField
-
 from .models import (
     FeatureRelease,
     PreRelease,
@@ -68,9 +65,7 @@ class FeatureReleaseAdmin(ReleaseChecklistAdminMixin, admin.ModelAdmin):
     list_display = ReleaseChecklistAdminMixin.list_display + ["tagline"]
 
 
-class SecurityReleaseAdmin(
-    ReleaseChecklistAdminMixin, DynamicArrayMixin, admin.ModelAdmin
-):
+class SecurityReleaseAdmin(ReleaseChecklistAdminMixin, admin.ModelAdmin):
     list_display = ["versions", "when", "releaser"]
     search_fields = ["affected_branches"]
     ordering = ["-when"]
