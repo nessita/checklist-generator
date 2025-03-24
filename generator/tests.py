@@ -8,7 +8,6 @@ from .models import Release, Releaser, SecurityIssue, SecurityRelease
 
 
 class BaseChecklistTestCaseMixin:
-
     checklist_class = None
     request_factory = RequestFactory()
 
@@ -43,13 +42,12 @@ class BaseChecklistTestCaseMixin:
         instance = self.make_checklist(releaser=releaser, when=future)
         request = self.request_factory.get("/")
 
-        result = render_checklist(request, self.checklist_class.objects.all())
+        result = render_checklist(request, [instance])
 
         self.assertNotIn("INVALID", result)
 
 
 class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
-
     checklist_class = SecurityRelease
 
     def make_checklist(self, **kwargs):

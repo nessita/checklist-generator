@@ -1,6 +1,5 @@
 from django.contrib import admin
 from django.http import HttpResponse
-from django.template import RequestContext
 from django.template.loader import render_to_string
 
 from .models import (
@@ -15,8 +14,8 @@ from .models import (
 
 
 def render_checklist(request, queryset):
-    assert queryset.count() == 1, "A single item should be selected"
-    instance = queryset.get()
+    assert len(queryset) == 1, "A single item should be selected"
+    [instance] = queryset
     context = {
         "instance": instance,
         "releaser": instance.releaser,

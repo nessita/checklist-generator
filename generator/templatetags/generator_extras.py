@@ -2,13 +2,12 @@ from datetime import timedelta
 
 from django import template
 
-
 register = template.Library()
 
 
 @register.filter
 def next_version(release):
-    return f"{release.major}.{release.minor}.{release.micro+1}"
+    return f"{release.major}.{release.minor}.{release.micro + 1}"
 
 
 @register.filter
