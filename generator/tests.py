@@ -20,6 +20,10 @@ class BaseChecklistTestCaseMixin:
     checklist_class = None
     request_factory = RequestFactory()
 
+    def debug_checklist(self, content):
+        with open(f"{self.id()}-checklist.md", "w") as f:
+            f.write(content)
+
     def make_releaser(self):
         return Releaser.objects.create(
             user=User.objects.create(username=f"releaser-{uuid4()}"),
@@ -100,6 +104,30 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
             "- [ ] Submit a CVE Request https://cveform.mitre.org for all issues",
             checklist_content,
         )
+
+    def test_render_checklist_affects_prerelease(self):
+        releases = [
+            Release.objects.create(version="5.0.14", date=date(2025, 4, 2)),
+            Release.objects.create(version="5.1.8", date=date(2025, 4, 2)),
+            Release.objects.create(version="5.2rc1", date=date(2025, 3, 19)),
+        ]
+        checklist = self.make_checklist(with_issues=False)
+        self.make_security_issue(checklist, releases, cve_year_number="CVE-2025-11111")
+        self.make_security_issue(checklist, releases, cve_year_number="CVE-2025-22222")
+
+        checklist_content = self.do_render_checklist(checklist)
+        self.debug_checklist(checklist_content)
+
+        self.assertNotInChecklistContent("5.2 before 5.2rc1", checklist_content)
+        self.assertIn(
+            "- Affected product(s)/code base (SPLIT in product and version (X before Y) "
+            "in rows!):",
+            checklist_content,
+        )
+        for release in ("5.1 before 5.1.8", "5.0 before 5.0.14"):
+            with self.subTest(release=release):
+                expected = f"[row 1] Django\n      [row 2] {release}"
+                self.assertIn(expected, checklist_content)
 
 
 class PreReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):

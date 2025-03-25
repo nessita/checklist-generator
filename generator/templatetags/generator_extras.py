@@ -40,7 +40,10 @@ def format_release_for_cve(release):
 
 @register.filter
 def format_releases_for_cves(releases):
-    return enumerate_items(releases, item_formatter=format_release_for_cve)
+    return enumerate_items(
+        [r for r in releases if not r.is_pre_release],
+        item_formatter=format_release_for_cve,
+    )
 
 
 @register.filter
