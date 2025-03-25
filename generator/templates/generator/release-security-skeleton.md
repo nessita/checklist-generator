@@ -24,10 +24,11 @@
     {% endif %}
     - Vendor of the product(s) info: `djangoproject`
     - Affected product(s)/code base (SPLIT in product and version (X before Y) in rows!):
-      ```{% for release in releases %}
+      ```{% for release in releases %}{% if not release.is_pre_release %}
       [row 1] Django
       [row 2] {{ release|format_release_for_cve }}
-      {% if not forloop.last %}---------- Click [+] Add ----------{% endif %}{% endfor %}```
+      {% if not forloop.last %}---------- Click [+] Add ----------{% endif %}{% endif %}
+      {% endfor %}```
     - Has vendor confirmed or acknowledged the vulnerability? `Yes`
     - Attack type info: `{{ cve.attack_type }}`
     - Impact info: `{{ cve.impact }}`
