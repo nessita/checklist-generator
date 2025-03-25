@@ -1,8 +1,9 @@
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from uuid import uuid4
 
 from django.contrib.auth.models import User
 from django.test import RequestFactory, TestCase, override_settings
+from django.utils.timezone import now
 
 from .admin import render_checklist
 from .models import (
@@ -48,7 +49,7 @@ class BaseChecklistTestCaseMixin:
         if releaser is None:
             releaser = self.make_releaser()
         if when is None:
-            when = datetime.now() + timedelta(days=10)
+            when = now() + timedelta(days=10)
         instance = self.make_checklist(releaser=releaser, when=when, **checklist_kwargs)
         request = self.request_factory.get("/")
 
@@ -84,7 +85,7 @@ class PreReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
     checklist_class = PreRelease
 
     def make_checklist(self, **kwargs):
-        future = date.today() + timedelta(days=75)
+        future = now() + timedelta(days=75)
         feature_release = FeatureRelease.objects.create(
             when=future, tagline="collection"
         )
