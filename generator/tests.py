@@ -27,10 +27,23 @@ class BaseChecklistTestCaseMixin:
             key_url="https://github.com/releaser.gpg",
         )
 
-    def make_checklist(self, releaser, when, **kwargs):
+    def make_checklist(self, releaser=None, when=None, **kwargs):
+        if releaser is None:
+            releaser = self.make_releaser()
+        if when is None:
+            when = now() + timedelta(days=10)
         return self.checklist_class.objects.create(
             releaser=releaser, when=when, **kwargs
         )
+
+    def assertNotInChecklistContent(self, text, content):
+        """Show more readable error message on `assertNotIn` failures."""
+        idx = content.find(text)
+        if idx != -1:
+            start = max(idx - 10, 0)
+            end = min(start + 100, len(content))
+            fragment = content[start:end]
+            self.fail(f"{text!r} unexpectedly found in:\n{fragment}")
 
     @override_settings(
         TEMPLATES=[
@@ -45,40 +58,48 @@ class BaseChecklistTestCaseMixin:
             }
         ]
     )
-    def do_render_checklist(self, releaser=None, when=None, **checklist_kwargs):
-        if releaser is None:
-            releaser = self.make_releaser()
-        if when is None:
-            when = now() + timedelta(days=10)
-        instance = self.make_checklist(releaser=releaser, when=when, **checklist_kwargs)
+    def do_render_checklist(self, checklist_instance=None):
+        if checklist_instance is None:
+            checklist_instance = self.make_checklist()
+
         request = self.request_factory.get("/")
+        response = render_checklist(request, [checklist_instance])
+        self.assertEqual(response["Content-Type"], "text/markdown")
 
-        response = render_checklist(request, [instance])
-        result = response.content.decode("utf-8")
-        idx = result.find("INVALID")
-        if idx != -1:
-            start = max(idx - 10, 0)
-            end = min(start + 1000, len(result))
-            fragment = result[start:end]
-            self.fail(f"'INVALID' unexpectedly found in {fragment}")
-        return result
+        content = response.content.decode("utf-8")
+        self.assertNotInChecklistContent("INVALID", content)
 
-    def test_render_checklist(self):
-        self.do_render_checklist()
+        return content
 
 
 class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
     checklist_class = SecurityRelease
 
-    def make_checklist(self, **kwargs):
-        checklist = super().make_checklist(**kwargs)
-        issue = SecurityIssue.objects.create(release=checklist)
-        release = Release.objects.create(
-            version="5.2", date=date(2025, 4, 2), is_lts=True
+    def make_security_issue(self, security_release_checklist, releases=None, **kwargs):
+        issue = SecurityIssue.objects.create(
+            release=security_release_checklist, **kwargs
         )
-        assert release is not None
-        issue.releases.add(release)
+        if releases is None:
+            releases = [
+                Release.objects.create(
+                    version="5.2", date=date(2025, 4, 2), is_lts=True
+                )
+            ]
+        issue.releases.add(*releases)
+        return issue
+
+    def make_checklist(self, with_issues=True, **kwargs):
+        checklist = super().make_checklist(**kwargs)
+        if with_issues:
+            self.make_security_issue(checklist)
         return checklist
+
+    def test_render_checklist_simple(self):
+        checklist_content = self.do_render_checklist()
+        self.assertIn(
+            "- [ ] Submit a CVE Request https://cveform.mitre.org for all issues",
+            checklist_content,
+        )
 
 
 class PreReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
@@ -102,10 +123,8 @@ class PreReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
                 version=f"5.2{status}1", date=date(2025, 4, 2), is_lts=True
             )
             with self.subTest(version=version):
-                checklist_content = self.do_render_checklist(
-                    verbose_version=version,
-                    release=release,
-                )
+                instance = self.make_checklist(verbose_version=version, release=release)
+                checklist_content = self.do_render_checklist(instance)
                 self.assertIn(
                     "- [ ] Update the translation catalogs:", checklist_content
                 )
@@ -115,7 +134,7 @@ class PreReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
                         checklist_content,
                     )
                 else:
-                    self.assertNotIn(
+                    self.assertNotInChecklistContent(
                         "- [ ] Post on Forum calling for translations!",
                         checklist_content,
                     )
