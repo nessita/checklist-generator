@@ -1,7 +1,9 @@
+import random
 from datetime import date, timedelta
 from uuid import uuid4
 
 from django.contrib.auth.models import User
+from django.template.defaultfilters import wordwrap
 from django.test import RequestFactory, TestCase, override_settings
 from django.utils.timezone import now
 
@@ -79,9 +81,23 @@ class BaseChecklistTestCaseMixin:
 class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
     checklist_class = SecurityRelease
 
-    def make_security_issue(self, security_release_checklist, releases=None, **kwargs):
+    def make_security_issue(
+        self,
+        security_release_checklist,
+        releases=None,
+        *,
+        cve_year_number=None,
+        **kwargs,
+    ):
+        if cve_year_number is None:  # make a random one to avoid collision
+            current_year = now().year
+            random_5digit = random.randint(10000, 100000)
+            cve_year_number = f"CVE-{current_year}-{random_5digit}"
+
         issue = SecurityIssue.objects.create(
-            release=security_release_checklist, **kwargs
+            release=security_release_checklist,
+            cve_year_number=cve_year_number,
+            **kwargs,
         )
         if releases is None:
             releases = [
@@ -128,6 +144,23 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
             with self.subTest(release=release):
                 expected = f"[row 1] Django\n      [row 2] {release}"
                 self.assertIn(expected, checklist_content)
+
+    def test_render_checklist_blogdescription_display(self):
+        checklist = self.make_checklist(with_issues=False)
+        blog = (
+            "This is a blog description that would be used in the Django site "
+            '"News" section. The full list of news can be found `in this link '
+            "<https://www.djangoproject.com/weblog/>`_."
+        )
+        self.make_security_issue(checklist, blogdescription=blog)
+
+        checklist_content = self.do_render_checklist(checklist)
+
+        self.assertIn(
+            "- [ ] Submit a CVE Request https://cveform.mitre.org for all issues",
+            checklist_content,
+        )
+        self.assertIn(wordwrap(blog, 80), checklist_content)
 
 
 class PreReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
