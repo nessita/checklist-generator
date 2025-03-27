@@ -588,6 +588,8 @@ class SecurityIssue(models.Model):
         SecurityRelease,
         help_text="Security Release that will fix this issue.",
         on_delete=models.CASCADE,
+        null=True,
+        blank=True,
     )
     releases = models.ManyToManyField(Release, through=SecurityIssueReleasesThrough)
     commit_hash_main = models.CharField(
