@@ -191,11 +191,21 @@ Details are available on the Django project weblog:
 :tada: Release notes:{% for version in versions %}
  * https://docs.djangoproject.com/en/dev/releases/{{ version }}{% endfor %}
 ```
-- [ ] Send email to CVE people so the CVE entry is public (is private until now)
+- [ ] Notify OSS Security mailing list of new security release
   - To: `oss-security@lists.openwall.com`
   - Cc: `security@djangoproject.com`
   - Subject: `Django {{ cves|enumerate_cves }}`
   - Body includes link to blog and blogpost text
+- [ ] Notify the CVE program to publish CVEs
+  - Visit https://cveform.mitre.org/ and fill out the web form with the following values:
+    - Select request type: `Notify CVE about a publication`
+    - Enter your e-mail address: `security@djangoproject.com`
+    - Link to the advisory: `{{ instance.blogpost_link }}`
+    - CVE IDs of vulnerabilities to be published: `{{ cves|enumerate_cves }}`
+    - Additional information and CVE ID description updates:
+      - Add following text: `Please publish the following CVE record(s):`
+      - Add CVE record JSON for each vulnerability with the CVE ID before each JSON.
+    - Date published: `{{ instance.when.date|date:"m/d/Y" }}`
 - [ ] Close PRs in security repo linking hashes
   {% regroup instance.hashes_by_versions|dictsortreversed:"branch" by branch as items %}
   {% for item in items %}
