@@ -597,7 +597,7 @@ class SecurityIssue(models.Model):
     )
 
     def __str__(self):
-        return f"Security issue for {self.cve_year_number}"
+        return self.cve_year_number
 
     @property
     def headline_for_blogpost(self):
