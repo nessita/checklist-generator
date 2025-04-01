@@ -11,6 +11,19 @@ def next_version(release):
 
 
 @register.filter
+def format_version_tuple(version_tuple):
+    version_tuple = [str(v) for v in version_tuple]
+    version_tuple[3] = f'"{version_tuple[3]}"'
+    version_tuple = ", ".join(version_tuple)
+    return f"({version_tuple})"
+
+
+@register.filter
+def next_version_tuple(release):
+    return release.major, release.minor, release.micro + 1, "alpha", 0
+
+
+@register.filter
 def next_release_date(value):
     return value + timedelta(days=30)
 
