@@ -333,3 +333,41 @@ class PreReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
                         "- [ ] Post on Forum calling for translations!",
                         checklist_content,
                     )
+
+
+class FeatureReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
+    checklist_class = FeatureRelease
+
+    def test_render_checklist(self):
+        eom_release = self.make_release(version="5.1", date=date(2024, 9, 2))
+        release = self.make_release(version="5.2", date=date(2025, 4, 2))
+        instance = self.make_checklist(release=release, eom_release=eom_release)
+        checklist_content = self.do_render_checklist(instance)
+        version_trove_classifier_updates = """- [ ] Local updates of version and trove classifier:
+  - Update the version number in `django/__init__.py` for the release.
+    - `VERSION = (5, 2, 0, "final", 0)`
+  - Ensure the "Development Status" trove classifier in `pyproject.toml` is:
+    - `Development Status :: 5 - Production/Stable`"""
+        post_release_bump = """- [ ] BUMP **MINOR VERSION** in `django/__init__.py`
+  - `VERSION = (5, 2, 1, "alpha", 0)`
+  - `git commit -m '[5.2.x] Post-release version bump.'`"""
+        feature_release_tasks = [
+            "- Remove the `UNDER DEVELOPMENT` header at the top of the release notes",
+            "- Remove the `Expected` prefix and update the release date if necessary",
+            "- [ ] Create a new branch from the current stable branch in the "
+            "[django-docs-translations repository]",
+            "- [ ] Update the metadata for the docs in "
+            "https://www.djangoproject.com/admin/docs/documentrelease/",
+            "- Create new `DocumentRelease` objects for each language",
+            "- [ ] Update djangoproject.com's [robots.docs.txt]",
+            "- [ ] Update the current stable branch and remove the pre-release branch",
+            "- [ ] Update the download page on djangoproject.com.",
+            version_trove_classifier_updates,
+            post_release_bump,
+        ]
+        for feature_release_task in feature_release_tasks:
+            with self.subTest(task=feature_release_task):
+                self.assertIn(feature_release_task, checklist_content)
+
+        with self.subTest(task="Stub release notes added"):
+            self.assertStubReleaseNotesAdded(release, checklist_content)

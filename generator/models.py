@@ -335,6 +335,10 @@ class Release(models.Model):  # This is the exact model from djangoproject.com
     def is_pre_release(self):
         return self.status != "f"
 
+    @cached_property
+    def is_dot_zero(self):
+        return self.status == "f" and self.micro == 0
+
     def clean(self):
         if self.is_published and not self.tarball:
             raise ValidationError(
@@ -387,17 +391,6 @@ class ReleaseChecklist(models.Model):
     @cached_property
     def blogpost_summary(self):
         return f"Django {self.version} has been released!"
-
-    @cached_property
-    def previous_status(self):
-        result = None
-        if self.status == "beta":
-            result = "alpha"
-        elif self.status == "rc":
-            result = "beta"
-        elif self.status == "final":
-            result = "rc"
-        return result
 
     @cached_property
     def status(self):
