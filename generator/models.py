@@ -1,4 +1,5 @@
 import datetime
+import json
 from functools import total_ordering
 
 from django.contrib.auth.models import User
@@ -6,6 +7,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.functional import cached_property
 
+from .templatetags.generator_extras import enumerate_items
 from .utils import get_loose_version_tuple
 
 CVE_TYPE_OTHER = "Other or Unknown"
@@ -101,6 +103,10 @@ Examples:
     Unicode characters (because the NFKC normalization is slow on Windows).
 </pre>
 """
+SEVERITY_LEVELS_DOCS = (
+    "https://docs.djangoproject.com/en/dev/internals/security/"
+    "#security-issue-severity-levels"
+)
 
 
 class ReleaseManager(models.Manager):
@@ -620,6 +626,83 @@ class SecurityIssue(models.Model):
             + [("main", self.commit_hash_main)],
             reverse=True,
         )
+
+    @property
+    def cve_data(self):
+        affected_unaffected_versions = []
+        versions = []
+        for release in self.releases.filter(status="f").order_by("-version"):
+            versions.append(release.version)
+            affected_unaffected_versions.extend(
+                [
+                    {
+                        "status": "affected",
+                        "version": f"{release.feature_version}.0",
+                        "lessThan": release.version,
+                        "versionType": "semver",
+                    },
+                    {
+                        "status": "unaffected",
+                        "version": release.version,
+                        "lessThan": f"{release.feature_version}.*",
+                        "versionType": "semver",
+                    },
+                ]
+            )
+        enumerated_versions = enumerate_items(versions)
+        return {
+            "title": self.summary.replace("`", ""),
+            "metrics": [
+                {
+                    "other": {
+                        "content": {
+                            "value": self.severity,
+                            "namespace": SEVERITY_LEVELS_DOCS,
+                        },
+                        "type": "Django severity rating",
+                    }
+                },
+            ],
+            "descriptions": [{"lang": "en", "value": self.description}],
+            "affected": [
+                {
+                    "packageName": "django",
+                    "collectionURL": "https://github.com/django/django/",
+                    "defaultStatus": "affected",
+                    "versions": affected_unaffected_versions,
+                }
+            ],
+            "references": [
+                {
+                    "url": self.release.blogpost_link,
+                    "name": f"Django security releases issued: {enumerated_versions}",
+                    "tags": ["vendor-advisory"],
+                }
+            ],
+            "credits": [
+                {
+                    "lang": "en",
+                    "type": "reporter",
+                    "value": f"Django would like to thank {self.reporter} for reporting this issue.",
+                }
+            ],
+            "timeline": [
+                {
+                    "lang": "en",
+                    "time": self.release.when.isoformat(),
+                    "value": "Made public.",
+                }
+            ],
+            "datePublic": self.release.when.strftime("%m/%d/%Y"),  # mm/dd/yyyy
+        }
+
+    @property
+    def cve_json(self):
+        return json.dumps(self.cve_data, sort_keys=True, indent=2)
+
+    @property
+    def cve_minified_json(self):
+        return json.dumps(self.cve_data, sort_keys=True, separators=(",", ":"))
 
     def clean_fields(self, *args, **kwargs):
         if self.cve_type == CVE_TYPE_OTHER and not self.other_type:

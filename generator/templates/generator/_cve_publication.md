@@ -5,7 +5,9 @@
     - _Enter a PGP Key_: `<blank>`
     - _Link to the advisory_: `{{ instance.blogpost_link }}`
     - _CVE IDs of vulnerabilities to be published_: `{{ cve }}`
-    - _Additional information and CVE ID description updates_:
-      - Add following text: `Please publish the following CVE record for {{ cve }}:`
-      - Add CVE record JSON
     - _Date published_: `{{ instance.when.date.isoformat }}`
+    - _Additional information and CVE ID description updates_:
+```
+Please publish the following CVE record for {{ cve }}:
+{{ cve.cve_minified_json|safe }}
+```

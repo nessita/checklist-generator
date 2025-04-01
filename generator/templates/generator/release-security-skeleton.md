@@ -174,7 +174,7 @@
   - Include hashes!
 - [ ] Email to `django-announce@googlegroups.com`
   - Title: `Django security releases issued: {{ versions|enumerate_items }}`
-  - Body with short notice and link to blogpost for more details
+  - Body with short notice and link to blogpost for more details:
 ```
 Details are available on the Django project weblog:
 {{ instance.blogpost_link }}
@@ -195,12 +195,14 @@ Details are available on the Django project weblog:
   - To: `oss-security@lists.openwall.com`
   - Cc: `security@djangoproject.com`
   - Subject: `Django {{ cves|enumerate_cves }}`
-  - Body includes link to blog and blogpost text
-  - At the bottom append:
+  - Body with blogpost link and content, and CVE data (PASTE blogpost content!!!):
 ```
-Machine-readable CVE data:
+* Announce link: {{ instance.blogpost_link }}
+
+* Announce content: <blogpost content>
 {% for cve in cves %}
-* {{ cve }}: <CVE JSON>
+* Machine-readable CVE data for {{ cve }}:
+{{ cve.cve_json|safe }}
 {% endfor %}
 ```
 - [ ] Notify `mitre.org` about the CVE publication
