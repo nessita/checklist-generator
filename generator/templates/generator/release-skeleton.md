@@ -1,12 +1,12 @@
 {% load generator_extras %}
-# Django {{ instance.verbose_version|default:version }} {{ title }} - {{ when|date }}
+# Django {{ instance.verbose_version }} {{ title }} - {{ when|date }}
 
 ## Before Release
 
 - [ ] Resolve release blockers
 - [ ] Update [forum post]({{ instance.forum_post }}) with any relevant news
 - [ ] Draft blog post
-  - Headline: `Django {{ instance.verbose_version|default:version }} released`
+  - Headline: `Django {{ instance.verbose_version }} released`
   - Slug: `{{ slug }}`
   - Format: reStructuredText
   - Summary: `{{ instance.blogpost_summary }}`
@@ -27,7 +27,7 @@
     {% if instance.previous_status %}- Change `{{ instance.previous_status }}` to `{{ instance.status }}`{% endif %}
   - Ensure the "Development Status" trove classifier in `pyproject.toml` is:
     - `{{ instance.trove_classifier }}`
-  - Commit msg: `{{ release.commit_prefix }} Bumped version for {{ instance.verbose_version|default:version }} release.`
+  - Commit msg: `{{ release.commit_prefix }} Bumped version for {{ instance.verbose_version }} release.`
   - e.g. https://github.com/django/django/commit/25fec8940b24107e21314ab6616e18ce8dec1c1c
 - [ ] Make sure you have an absolutely clean tree by running (use script here)
   - `git clean -dfx`
@@ -55,7 +55,7 @@
   - https://www.djangoproject.com/admin/releases/release/{{ version }}/change/
 - [ ] Publish blog post
 - [ ] Post the release announcement to the [django-announce](https://docs.djangoproject.com/en/dev/internals/mailing-lists/#django-announce-mailing-list) and in the Django Forum.
-  - Subject: `Django {{ instance.verbose_version|default:version }} released`
+  - Subject: `Django {{ instance.verbose_version }} released`
   - Body:
 ```
 Details are available on the Django project weblog:

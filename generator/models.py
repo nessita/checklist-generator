@@ -448,6 +448,9 @@ class FeatureRelease(ReleaseChecklist):
     def slug(self):
         return f"django-{self.version.replace('.', '')}-released"
 
+    def verbose_version(self):
+        return self.version
+
 
 class PreRelease(ReleaseChecklist):
     release = models.OneToOneField(Release, null=True, on_delete=models.SET_NULL)
@@ -479,6 +482,9 @@ class BugFixRelease(ReleaseChecklist):
     feature_release = models.ForeignKey(FeatureRelease, on_delete=models.CASCADE)
 
     slug = "bugfix-releases"
+
+    def verbose_version(self):
+        return self.version
 
 
 class SecurityRelease(ReleaseChecklist):
