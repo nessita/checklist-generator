@@ -1,14 +1,16 @@
+import json
 import random
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from uuid import uuid4
 
 from django.contrib.auth.models import User
 from django.template.defaultfilters import wordwrap
 from django.test import RequestFactory, TestCase, override_settings
-from django.utils.timezone import now
+from django.utils.timezone import make_aware, now
 
 from .admin import render_checklist
 from .models import (
+    SEVERITY_LEVELS_DOCS,
     FeatureRelease,
     PreRelease,
     Release,
@@ -161,6 +163,125 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
             checklist_content,
         )
         self.assertIn(wordwrap(blog, 80), checklist_content)
+
+    def test_render_cve_json(self):
+        releases = [
+            Release.objects.create(version="5.0.14", date=date(2025, 4, 2)),
+            Release.objects.create(version="5.1.8", date=date(2025, 4, 2)),
+            Release.objects.create(version="5.2rc1", date=date(2025, 3, 19)),
+        ]
+        when = datetime(2024, 12, 4, 10)
+        checklist = self.make_checklist(
+            with_issues=False,
+            when=make_aware(when),
+        )
+        cve_number = "CVE-2024-53907"
+        cve_summary = "Potential denial-of-service in django.utils.html.strip_tags()"
+        cve_description = (
+            "The strip_tags() method and striptags template filter are subject to a "
+            "potential denial-of-service attack via certain inputs containing large "
+            "sequences of nested incomplete HTML entities."
+        )
+        reporter = "jiangniao"
+        issue = self.make_security_issue(
+            checklist,
+            releases,
+            cve_year_number=cve_number,
+            summary=cve_summary,
+            description=cve_description,
+            reporter=reporter,
+        )
+        checklist_content = self.do_render_checklist(checklist)
+
+        affected_versions = [
+            {
+                "collectionURL": "https://github.com/django/django/",
+                "defaultStatus": "affected",
+                "packageName": "django",
+                "versions": [
+                    {
+                        "lessThan": "5.1.8",
+                        "status": "affected",
+                        "version": "5.1.0",
+                        "versionType": "semver",
+                    },
+                    {
+                        "lessThan": "5.1.*",
+                        "status": "unaffected",
+                        "version": "5.1.8",
+                        "versionType": "semver",
+                    },
+                    {
+                        "lessThan": "5.0.14",
+                        "status": "affected",
+                        "version": "5.0.0",
+                        "versionType": "semver",
+                    },
+                    {
+                        "lessThan": "5.0.*",
+                        "status": "unaffected",
+                        "version": "5.0.14",
+                        "versionType": "semver",
+                    },
+                ],
+            }
+        ]
+        credits = [
+            {
+                "lang": "en",
+                "type": "reporter",
+                "value": f"Django would like to thank {reporter} for reporting this issue.",
+            }
+        ]
+        expected = [
+            ("affected", affected_versions),
+            ("credits", credits),
+            ("datePublic", "12/04/2024"),
+            ("descriptions", [{"lang": "en", "value": cve_description}]),
+            (
+                "metrics",
+                [
+                    {
+                        "other": {
+                            "content": {
+                                "namespace": SEVERITY_LEVELS_DOCS,
+                                "value": "moderate",
+                            },
+                            "type": "Django severity rating",
+                        }
+                    }
+                ],
+            ),
+            (
+                "references",
+                [
+                    {
+                        "name": "Django security releases issued: 5.1.8 and 5.0.14",
+                        "tags": ["vendor-advisory"],
+                        "url": checklist.blogpost_link,
+                    }
+                ],
+            ),
+            (
+                "timeline",
+                [
+                    {
+                        "lang": "en",
+                        "time": checklist.when.isoformat(),
+                        "value": "Made public.",
+                    }
+                ],
+            ),
+            ("title", cve_summary),
+        ]
+        cve_data = issue.cve_data
+        for key, value in expected:
+            with self.subTest(key=key):
+                self.assertEqual(cve_data.get(key), value)
+
+        cve_json = json.dumps(cve_data, sort_keys=True, indent=2)
+        with self.subTest(key="json"):
+            self.assertIn(cve_json, checklist_content)
 
 
 class PreReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
