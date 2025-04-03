@@ -115,34 +115,7 @@
 {% include 'generator/_make_release_public.md' %}{% endif %}{% endfor %}
 
 ### Phase 2: final updates
-- [ ] In the main branch, start release notes for the next version only for the latest stable branch!
-  {% with next_version=instance.latest_release|next_version %}
-  - `git checkout main`
-  - Edit `docs/releases/index.txt` and add an entry for `{{ next_version }}`
-  - Create empty file for release at `docs/releases/{{ next_version }}.txt`
-      - Add basic content:
-
-        ```
-        ==========================
-        Django {{ next_version }} release notes
-        ==========================
-
-        *Expected {{ when|next_release_date|date:"F j, Y" }}*
-
-        Django {{ next_version }} fixes several bugs in {{ versions.0 }}.
-
-        Bugfixes
-        ========
-
-        * ...
-
-        ```
-  - Confirm docs works
-      - `make html`
-  - Commit
-      - `git commit -m 'Added stub release notes for {{ next_version }}.'`
-  - Backport new release notes to latest stable branch!
-      -  `backport.sh {HASH}`
+{% include "generator/_stub_release_notes.md" with release=instance.latest_release %}
 - [ ]  In the main branch, add security patches entry to archive and backport
   - `git checkout main`
   - Edit `docs/releases/security.txt`
@@ -158,7 +131,6 @@
     {% for release in instance.affected_releases %}
     - `git checkout {{ release.stable_branch }} && backport.sh {HASH}`
     {% endfor %}
-  {% endwith %}
 
 ### Final tasks -- PUSH EVERYTHING TO BRANCHES
 
@@ -225,5 +197,4 @@ Fixed:{% for i in item.list|dictsortreversed:'branch' %}
 * On the [{{ i.branch }} branch](https://github.com/django/django/commit/{{ i.hash }}){% endfor %}
 ```
   {% endfor %}
-- [ ] Remove branches
-{% endwith %}
+- [ ] Remove branches{% endwith %}
