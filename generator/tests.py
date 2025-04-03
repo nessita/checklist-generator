@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from django.contrib.auth.models import User
 from django.template.defaultfilters import wordwrap
+from django.template.loader import render_to_string
 from django.test import RequestFactory, TestCase, override_settings
 from django.utils.timezone import make_aware, now
 
@@ -53,6 +54,12 @@ class BaseChecklistTestCaseMixin:
             fragment = content[start:end]
             self.fail(f"{text!r} unexpectedly found in:\n{fragment}")
 
+    def assertStubReleaseNotesAdded(self, release, content):
+        expected = render_to_string(
+            "generator/_stub_release_notes.md", {"release": release}
+        )
+        self.assertIn(expected, content)
+
     @override_settings(
         TEMPLATES=[
             {
@@ -79,6 +86,12 @@ class BaseChecklistTestCaseMixin:
 
         return content
 
+    def make_release(self, **kwargs):
+        version = kwargs.setdefault("version", "5.2")
+        kwargs.setdefault("date", date(2025, 4, 2))
+        kwargs.setdefault("is_lts", version.split(".", 1)[1].startswith("2"))
+        return Release.objects.create(**kwargs)
+
 
 class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
     checklist_class = SecurityRelease
@@ -102,34 +115,34 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
             **kwargs,
         )
         if releases is None:
-            releases = [
-                Release.objects.create(
-                    version="5.2", date=date(2025, 4, 2), is_lts=True
-                )
-            ]
+            releases = [self.make_release()]
         issue.releases.add(*releases)
         return issue
 
-    def make_checklist(self, with_issues=True, **kwargs):
+    def make_checklist(self, with_issues=True, releases=None, **kwargs):
         checklist = super().make_checklist(**kwargs)
-        if with_issues:
-            self.make_security_issue(checklist)
+        if releases is None:
+            releases = [self.make_release()]
+        if releases != []:
+            self.make_security_issue(checklist, releases=releases)
         return checklist
 
     def test_render_checklist_simple(self):
-        checklist_content = self.do_render_checklist()
+        checklist = self.make_checklist()
+        checklist_content = self.do_render_checklist(checklist)
         self.assertIn(
             "- [ ] Submit a CVE Request https://cveform.mitre.org for all issues",
             checklist_content,
         )
+        self.assertStubReleaseNotesAdded(checklist.latest_release, checklist_content)
 
     def test_render_checklist_affects_prerelease(self):
         releases = [
-            Release.objects.create(version="5.0.14", date=date(2025, 4, 2)),
-            Release.objects.create(version="5.1.8", date=date(2025, 4, 2)),
-            Release.objects.create(version="5.2rc1", date=date(2025, 3, 19)),
+            self.make_release(version="5.0.14", date=date(2025, 4, 2)),
+            self.make_release(version="5.1.8", date=date(2025, 4, 2)),
+            self.make_release(version="5.2rc1", date=date(2025, 3, 19)),
         ]
-        checklist = self.make_checklist(with_issues=False)
+        checklist = self.make_checklist(releases=[])
         self.make_security_issue(checklist, releases, cve_year_number="CVE-2025-11111")
         self.make_security_issue(checklist, releases, cve_year_number="CVE-2025-22222")
 
@@ -148,7 +161,7 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
                 self.assertIn(expected, checklist_content)
 
     def test_render_checklist_blogdescription_display(self):
-        checklist = self.make_checklist(with_issues=False)
+        checklist = self.make_checklist(releases=[])
         blog = (
             "This is a blog description that would be used in the Django site "
             '"News" section. The full list of news can be found `in this link '
@@ -166,13 +179,13 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
 
     def test_render_cve_json(self):
         releases = [
-            Release.objects.create(version="5.0.14", date=date(2025, 4, 2)),
-            Release.objects.create(version="5.1.8", date=date(2025, 4, 2)),
-            Release.objects.create(version="5.2rc1", date=date(2025, 3, 19)),
+            self.make_release(version="5.0.14", date=date(2025, 4, 2)),
+            self.make_release(version="5.1.8", date=date(2025, 4, 2)),
+            self.make_release(version="5.2rc1", date=date(2025, 3, 19)),
         ]
         when = datetime(2024, 12, 4, 10)
         checklist = self.make_checklist(
-            with_issues=False,
+            releases=[],
             when=make_aware(when),
         )
         cve_number = "CVE-2024-53907"
@@ -301,7 +314,7 @@ class PreReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
             "rc": "release candidate",
         }
         for status, version in status_to_version.items():
-            release = Release.objects.create(
+            release = self.make_release(
                 version=f"5.2{status}1", date=date(2025, 4, 2), is_lts=True
             )
             with self.subTest(version=version):
