@@ -9,43 +9,14 @@
   - Add label for severity
   - e.g. https://github.com/django/django-security/issues/362
 - [ ] Prepare fixes targeting main, get reviews, include release notes
-- [ ] Submit a CVE Request https://cveform.mitre.org for all issues
-  - Select a request type: `Report Vulnerability/Request CVE ID`
-  - Enter your e-mail address: `security@djangoproject.com`
-  - Enter a PGP Key (to encrypt): *leave blank*
-  - Number of vulnerabilities reported or IDs requested (1-10) info: `{{ cves_length }}`
-  - I have verified that this vulnerability is not in a CNA-covered product: `Yes`
-  - I have verified that the vulnerability has not already been assigned a CVE ID: `Yes`
-  {% for cve in cves %}{% with releases=cve.releases.all %}
-  - For issue **{{ cve.summary }}**:
-    - Vulnerability type info: `{{ cve.cve_type }}`
-    {% if cve.other_type %}
-    - Other vulnerability type info: `{{ cve.other_type }}`
-    {% endif %}
-    - Vendor of the product(s) info: `djangoproject`
-    - Affected product(s)/code base (SPLIT in product and version (X before Y) in rows!):
-      ```{% for release in releases %}{% if not release.is_pre_release %}
-      [row 1] Django
-      [row 2] {{ release|format_release_for_cve }}
-      {% if not forloop.last %}---------- Click [+] Add ----------{% endif %}{% endif %}
-      {% endfor %}```
-    - Has vendor confirmed or acknowledged the vulnerability? `Yes`
-    - Attack type info: `{{ cve.attack_type }}`
-    - Impact info: `{{ cve.impact }}`
-    - Affected component(s): *leave blank*
-    - Attack vector(s): *leave blank*
-    - Suggested description of the vulnerability for use in the CVE info:
-      ```
-      An issue was discovered in {{ releases|format_releases_for_cves }}.
-      {{ cve.description }}
-      ```
-    - Discoverer(s)/Credits info: `{{ cve.reporter }}`
-    - Reference(s) info:
-      ```
-      https://groups.google.com/g/django-announce
-      https://docs.djangoproject.com/en/dev/releases/security/
-      ```
-  {% endwith %}{% endfor %}
+- [ ] Submit request for CVE ID allocation to the Fedora CNA for all issues
+  - To: `secalert@redhat.com`
+  - CC: `security@djangoproject.com`
+  - Subject: `CVE ID request for Django vulnerabilities`
+  - Body of email:
+```
+{% include 'generator/_cve_id_request.md' }
+```
 - [ ] Write blogpost draft
   - Include REPORTER and severity!
   - e.g. https://www.djangoproject.com/admin/blog/entry/706/change/
@@ -172,13 +143,22 @@ Details are available on the Django project weblog:
 * Announce link: {{ instance.blogpost_link }}
 
 * Announce content: <blogpost content>
+```
+- [ ] Notify `Fedora CNA` about the CVE publication
+  - To: `secalert@redhat.com`
+  - CC: `security@djangoproject.com`
+  - Subject: `Please publish Django CVE records: {{ cves|enumerate_cves }}`
+  - Body with CVE data:
+```
+Please publish the following CVE records for these CVEs that were previously reserved via the Fedora CNA:
+
 {% for cve in cves %}
-* Machine-readable CVE data for {{ cve }}:
+{{ cve }}:
+
 {{ cve.cve_json|safe }}
+
 {% endfor %}
 ```
-- [ ] Notify `mitre.org` about the CVE publication
-  {% for cve in cves %}{% include "generator/_cve_publication.md" %}{% endfor %}
 - [ ] Close PRs in security repo linking hashes
   {% regroup instance.hashes_by_versions|dictsortreversed:"branch" by branch as items %}
   {% for item in items %}
