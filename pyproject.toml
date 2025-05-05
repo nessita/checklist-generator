@@ -1,0 +1,6 @@
+[tool.black]
+target-version = ["py313"]
+
+[tool.isort]
+profile = "black"
+default_section = "THIRDPARTY"
