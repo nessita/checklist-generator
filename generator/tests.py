@@ -570,16 +570,18 @@ class FeatureReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
             release=release, eom_release=eom_release, eol_release=eol_release
         )
         checklist_content = self.do_render_checklist(checklist)
-        version_trove_classifier_updates = """
-- [ ] Local updates of version and trove classifier:
-  - Update the version number in `django/__init__.py` for the release.
-    - `VERSION = (5, 2, 0, "final", 0)`
-  - Ensure the "Development Status" trove classifier in `pyproject.toml` is:
-    - `Development Status :: 5 - Production/Stable`"""
-        post_release_bump = """
-- [ ] BUMP **MINOR VERSION** in `django/__init__.py`
-  - `VERSION = (5, 2, 1, "alpha", 0)`
-  - `git commit -m '[5.2.x] Post-release version bump.'`"""
+        version_trove_classifier_updates = (
+            "- [ ] Change version in `django/__init__.py` and maybe trove classifier:\n"
+            '  - `VERSION = (5, 2, 0, "final", 0)`\n'
+            '  - Ensure the "Development Status" trove classifier in `pyproject.toml` '
+            "is: `Development Status :: 5 - Production/Stable``\n"
+            "  - `git commit -a -m '[5.2.x] Bumped version for 5.2 release.'`\n"
+        )
+        post_release_bump = (
+            "- [ ] BUMP **MINOR VERSION** in `django/__init__.py`\n"
+            '  - `VERSION = (5, 2, 1, "alpha", 0)`\n'
+            "  - `git commit -a -m '[5.2.x] Post-release version bump.'`"
+        )
         feature_release_tasks = [
             "- Remove the `UNDER DEVELOPMENT` header at the top of the release notes",
             "- Remove the `Expected` prefix and update the release date if necessary",

@@ -8,11 +8,11 @@
   - Add labels for affected versions
   - Add label for severity
   - e.g. https://github.com/django/django-security/issues/362
-- [ ] Prepare fixes targeting main, get reviews, include release notes
+- [ ] Prepare fixes targeting `main`, get reviews, include release notes
 - [ ] Submit a CVE Request https://cveform.mitre.org for all issues
   - Select a request type: `Report Vulnerability/Request CVE ID`
   - Enter your e-mail address: `security@djangoproject.com`
-  - Enter a PGP Key (to encrypt): *leave blank*
+  - Enter a PGP Key (to encrypt): _blank_
   - Number of vulnerabilities reported or IDs requested (1-10) info: `{{ cves_length }}`
   - I have verified that this vulnerability is not in a CNA-covered product: `Yes`
   - I have verified that the vulnerability has not already been assigned a CVE ID: `Yes`
@@ -32,8 +32,8 @@
     - Has vendor confirmed or acknowledged the vulnerability? `Yes`
     - Attack type info: `{{ cve.attack_type }}`
     - Impact info: `{{ cve.impact }}`
-    - Affected component(s): *leave blank*
-    - Attack vector(s): *leave blank*
+    - Affected component(s): _blank_
+    - Attack vector(s): _blank_
     - Suggested description of the vulnerability for use in the CVE info:
       ```
       An issue was discovered in {{ releases|format_releases_for_cves }}.
@@ -91,7 +91,7 @@
 
 ## Release Day
 
-- [ ] Update security report and update patches for main and stable branches
+- [ ] Update security report and update patches for `main` and stable branches
 - [ ] Empty push to private GH so actions are (re)run
 - [ ] Regenerate patches against latest revno in each branch
   - `git format-patch HEAD~{{ cves_length }}`
@@ -99,27 +99,22 @@
 ### Phase 0: apply patches and build binaries -- DO NOT PUSH NOR PUBLISH ANYTHING YET
 
 #### For `main`
-- [ ] Switch to the main branch and update it:
-  - `git checkout main && git pull -v`
-- [ ] Apply patch
-  - `git am path/to/patch/for/main`
+{% include 'generator/_apply_security_patch.md' with release="main" %}
 {% for release in instance.affected_releases %}
 #### For {{ release.version }}{% if release.is_pre_release %} (at pre-release {{ release.get_status_display }} status)
-- [ ] Switch to the {{ release.feature_version }} branch and update it:
-  - `git checkout {{ release.stable_branch }} && git pull -v`
-- [ ] Apply patch
-  - `git am path/to/patch/for/{{ release.version }}`
-{% else %}{% include 'generator/_build_release_binaries.md' %}{% endif %}
+{% include 'generator/_apply_security_patch.md' %}
+{% else %}
+{% include 'generator/_apply_security_patch.md' %}{% include 'generator/_build_release_binaries.md' %}{% endif %}
 {% endfor %}
 
-### Phase 1: publish binaries -- ONLY 15 MINUTES BEFORE RELEASE TIME
+### Phase 1: publish artifacts -- ONLY 15 MINUTES BEFORE RELEASE TIME
 {% for release in instance.affected_releases %}{% if not release.is_pre_release %}
 #### For {{ release.version }}
 {% include 'generator/_make_release_public.md' %}{% endif %}{% endfor %}
 
-### Phase 2: final updates
+### Phase 2: update release notes and the security archive
 {% include "generator/_stub_release_notes.md" with release=instance.latest_release %}
-- [ ]  In the main branch, add security patches entry to archive and backport
+- [ ]  In the `main` branch, add security patches entry to archive and backport
   - `git checkout main`
   - Edit `docs/releases/security.txt`
       - Need hashes!
@@ -127,7 +122,7 @@
 {% include 'generator/release_security_archive.rst' %}
 ```
   - `make html`
-  - `git commit -m 'Added {{ cves|enumerate_cves }} to security archive.'`
+  - `git commit -a -m 'Added {{ cves|enumerate_cves }} to security archive.'`
   - Check links from local docs
       - `firefox _build/html/releases/security.html`
   - Backport security archive update to all branches!

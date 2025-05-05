@@ -396,6 +396,14 @@ class ReleaseChecklist(models.Model):
     def blogpost_summary(self):
         return f"Django {self.version} has been released!"
 
+    @property
+    def is_security_release(self):
+        return "security" in self.slug
+
+    @cached_property
+    def slug(self):
+        return f"django-{self.version.replace('.', '')}-released"
+
     @cached_property
     def status(self):
         if (release := getattr(self, "release", None)) is not None:
