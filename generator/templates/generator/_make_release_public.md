@@ -1,9 +1,20 @@
-{% load generator_extras %}
-- [ ] Ensure separated folder in origin.djangoproject.com for the release (this should be the case already)
-  - `ssh www@origin.djangoproject.com 'ls -l /home/www/www/media/releases/{{ release.feature_version }}'`
-- [ ] **ONLY SCP** each binary set (tar.gz and wheel) to the corresponding folder (use commands from before)
+- [ ] Go to the [Add release page in the admin](https://www.djangoproject.com/admin/releases/release/add/), enter the following:
+  - Version: {{ release }}
+  - Is active: False
+  - LTS: {{ release.is_lts }}
+  - Release date: {{ release.date.isoformat }}
+  - End of life date: _blank_
+  - Upload artifacts (tarball, wheel, .asc signed checksum)
+  - Save
+  - Check at: https://www.djangoproject.com/admin/releases/release/{{ release }}/change/
+- [ ] Test the release locally with https://code.djangoproject.com/wiki/ReleaseTestNewVersion
+  - `RELEASE_VERSION={{ release }} test_new_version.sh`
 - [ ] CONFIRM RELEASE via jenkins job
   - https://djangoci.com/job/confirm-release/ "Build with parameters" passing `{{ release.version }}` as version
-- [ ] Run test new version script
-- [ ] Twine upload (use commands printed by release script)
-- [ ] Mark the release as "active" in djangoproject.com/admin for {{ release.version }}
+- [ ] Push your work: version update(s), including the new tag
+  - `git push`
+  - `git push --tags`
+- [ ] Upload to PyPI with Twine (use commands printed by release script)
+  - `twine upload --repository django dist/*`
+  - https://pypi.org/project/Django/{{ release }}/
+- [ ] Mark the release as "active" in https://www.djangoproject.com/admin/releases/release/{{ release }}/change/

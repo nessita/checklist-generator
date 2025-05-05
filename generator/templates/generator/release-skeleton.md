@@ -20,7 +20,8 @@
   - `git push origin {{ release.stable_branch }}:{{ release.stable_branch }}`
 {% endif %}
 
-## Release Day ** DOUBLE CHECK THIS LIST **
+## Release Day
+
 - [ ] Polish and if necessary make cosmetic edits to release notes on `main` and backport{% if release.is_dot_zero %}:
   - Remove the `UNDER DEVELOPMENT` header at the top of the release notes
   - Remove the `Expected` prefix and update the release date if necessary
@@ -35,37 +36,17 @@
   - `man _build/man/django-admin.1`  # do a quick sanity check
   - `cp _build/man/django-admin.1 man/django-admin.1`
   - e.g. https://github.com/django/django/commit/34bc3a3f88a5f9829df91afae9ee9bae5dae310a
-- [ ] Local updates of version and trove classifier:
-  - Update the version number in `django/__init__.py` for the release.
-    - `VERSION = {{ release.version_tuple|format_version_tuple|safe }}`
-  - Ensure the "Development Status" trove classifier in `pyproject.toml` is:
-    - `{{ instance.trove_classifier }}`
-  - Commit msg: `{{ release.commit_prefix }} Bumped version for {{ instance.verbose_version }} release.`
-  - e.g. https://github.com/django/django/commit/25fec8940b24107e21314ab6616e18ce8dec1c1c
-- [ ] Make sure you have an absolutely clean tree by running (use script here)
-  - `git clean -dfx`
-- [ ] Run release script
-  - `do_django_release.py`
-- [ ] Execute ALL commands BUT upload to PyPI
-  - `gpg --clearsign -u 124304+nessita@users.noreply.github.com --digest-algo SHA256 <path-to-checksums-folder>/Django-{{ version }}.checksum.txt`
-  - `scp -i ~/.ssh/dali/id_rsa <path-to-checksums-folder>/Django-{{ version }}.checksum.txt.asc www@origin.djangoproject.com:/home/www/www/media/pgp/Django-{{ version }}.checksum.txt`
-  - `scp -i ~/.ssh/dali/id_rsa dist/Django-* www@origin.djangoproject.com:/home/www/www/media/releases/{{ release.feature_version }}`
-  - `git tag --sign --message="Tag {{ version }}" {{ version }}`
-  - `git tag --verify {{ version }}`
-{% if release.status == "f" %}
-- [ ] BUMP **MINOR VERSION** in `django/__init__.py`
-  - `VERSION = {{ release|next_version_tuple|format_version_tuple|safe }}`
-  - `git commit -m '{{ release.commit_prefix }} Post-release version bump.'`{% endif %}
-- [ ] Test the release locally with helper
-  - `RELEASE_VERSION={{ version }} test_new_version.sh`
-- [ ] Confirm the release with Jenkins
-  - https://djangoci.com/job/confirm-release/: `{{ version }}`
-- [ ] Upload to PyPI
-  - `twine upload dist/*`
-  - https://pypi.org/project/Django/{{ version }}/
-- [ ] Go to the[ Add release page in the admin](https://www.djangoproject.com/admin/releases/release/add/), enter the new release number
-  - {{ version }} ({% if not release.is_lts %}non {% endif %}LTS)
-  - https://www.djangoproject.com/admin/releases/release/{{ version }}/change/
+
+### Build artifacts
+{% include 'generator/_build_release_binaries.md' %}
+
+### Publish artifacts
+
+{% include 'generator/_make_release_public.md' %}
+
+### Final tasks
+
+{% if release.status == "f" %}{% include "generator/_stub_release_notes.md" %}{% endif %}
 {% include "generator/_push_changes_and_announce.md" %}
 {% if release.is_dot_zero %}
 - [ ] Update the metadata for the docs in https://www.djangoproject.com/admin/docs/documentrelease/:
@@ -75,8 +56,12 @@
   - This is the result from running in the [django-docs-translations repository](https://github.com/django/django-docs-translations)
   - `git checkout {{ release.stable_branch }} && git pull -v`
   - `python manage_translations.py robots_txt`
-  - e.g. https://github.com/django/djangoproject.com/pull/1445{% endif %}
-{% if release.status != "f" %}
+  - e.g. https://github.com/django/djangoproject.com/pull/1445
+- [ ] Update the current stable branch and remove the pre-release branch in the
+      [Django release process](https://code.djangoproject.com/#Djangoreleaseprocess) on Trac.
+- [ ] Update the download page on djangoproject.com.
+  - e.g. https://github.com/django/django/commit/d2b1ec551567c208abfdd21b27ff6d08ae1a6371.
+{% elif release.status != "f" %}
 - [ ] Update the translation catalogs:
   - Make a new branch from the recently released stable branch:
     - `git checkout {{ release.stable_branch }} && git pull -v`
@@ -89,12 +74,6 @@
   - Make a pull request against the corresponding stable branch and merge once approved.
   - Forward port the updated source translations to the `main` branch.
   - e.g. https://github.com/django/django/commit/aed303aff57ac990894b6354af001b0e8ea55f71.
-{% else %}{% include "generator/_stub_release_notes.md" %}{% endif %}
-{% if release.is_dot_zero %}
-- [ ] Update the current stable branch and remove the pre-release branch in the
-      [Django release process](https://code.djangoproject.com/#Djangoreleaseprocess) on Trac.
-- [ ] Update the download page on djangoproject.com.
-  - e.g. https://github.com/django/django/commit/d2b1ec551567c208abfdd21b27ff6d08ae1a6371.
 {% endif %}
 {% if release.status == "c" %}
 - [ ] Post on Forum calling for translations!
