@@ -84,6 +84,30 @@ class BaseChecklistTestCaseMixin:
         )
         self.assertIn(expected, content)
 
+    def assertMakeReleasePublicAdded(self, release, content):
+        expected = render_to_string(
+            "generator/_make_release_public.md", {"release": release}
+        )
+        self.assertIn(expected, content)
+        version = release.version
+        data = [
+            f"- Version: {version}",
+            "- Is active: False",
+            f"- LTS: {release.is_lts}",
+            f"- Release date: {release.date.isoformat()}",
+            f"- `RELEASE_VERSION={version} test_new_version.sh`",
+            '- https://djangoci.com/job/confirm-release/ "Build with parameters" '
+            f"passing `{version}` as version",
+            "- `git push`",
+            "- `git push --tags`",
+            "- `twine upload --repository django dist/*`",
+            '- [ ] Mark the release as "active" in '
+            f"https://www.djangoproject.com/admin/releases/release/{version}/change/",
+        ]
+        for item in data:
+            with self.subTest(item=item):
+                self.assertIn(item, expected)
+
     def assertPushAndAnnouncesAdded(self, checklist, content):
         expected = render_to_string(
             "generator/_push_changes_and_announce.md", {"instance": checklist}
@@ -217,6 +241,11 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
         )
         with self.subTest(task="Stub release notes added"):
             self.assertStubReleaseNotesAdded(
+                checklist.latest_release, checklist_content
+            )
+
+        with self.subTest(task="Make release public steps added"):
+            self.assertMakeReleasePublicAdded(
                 checklist.latest_release, checklist_content
             )
 
@@ -579,16 +608,18 @@ class FeatureReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
             release=release, eom_release=eom_release, eol_release=eol_release
         )
         checklist_content = self.do_render_checklist(checklist)
-        version_trove_classifier_updates = """
-- [ ] Local updates of version and trove classifier:
-  - Update the version number in `django/__init__.py` for the release.
-    - `VERSION = (5, 2, 0, "final", 0)`
-  - Ensure the "Development Status" trove classifier in `pyproject.toml` is:
-    - `Development Status :: 5 - Production/Stable`"""
-        post_release_bump = """
-- [ ] BUMP **MINOR VERSION** in `django/__init__.py`
-  - `VERSION = (5, 2, 1, "alpha", 0)`
-  - `git commit -m '[5.2.x] Post-release version bump.'`"""
+        version_trove_classifier_updates = (
+            "- [ ] Change version in `django/__init__.py` and maybe trove classifier:\n"
+            '  - `VERSION = (5, 2, 0, "final", 0)`\n'
+            '  - Ensure the "Development Status" trove classifier in `pyproject.toml` '
+            "is: `Development Status :: 5 - Production/Stable``\n"
+            "  - `git commit -a -m '[5.2.x] Bumped version for 5.2 release.'`\n"
+        )
+        post_release_bump = (
+            "- [ ] BUMP **MINOR VERSION** in `django/__init__.py`\n"
+            '  - `VERSION = (5, 2, 1, "alpha", 0)`\n'
+            "  - `git commit -a -m '[5.2.x] Post-release version bump.'`"
+        )
         feature_release_tasks = [
             "- Remove the `UNDER DEVELOPMENT` header at the top of the release notes",
             "- Remove the `Expected` prefix and update the release date if necessary",
@@ -609,6 +640,9 @@ class FeatureReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
 
         with self.subTest(task="Stub release notes added"):
             self.assertStubReleaseNotesAdded(release, checklist_content)
+
+        with self.subTest(task="Make release public steps added"):
+            self.assertMakeReleasePublicAdded(release, checklist_content)
 
         with self.subTest(task="Push and announce steps added"):
             self.assertPushAndAnnouncesAdded(checklist, checklist_content)

@@ -1,21 +1,15 @@
 {% load generator_extras %}
-- [ ] Switch to the stable branch:
-  - `git checkout {{ release.stable_branch }} && git pull -v`
-- [ ] Apply patch
-  - `git am path/to/patch/for/{{ release.version }}`
-  - `git am --abort` to the rescue if there are issues
-- [ ] Add `{{ release.commit_prefix }}` **prefix** to commit msgs
-  - `git commit --amend`
-  - **SAVE** resulting hash for later, add it to blogpost draft and security PR
-- [ ] Change version in `django/__init__.py`
-  - `alpha` -> `final`
-  - `git commit -m '{{ release.commit_prefix }} Bumped version for {{ release.version }} release.'`
-- [ ] RUN script to do the release:
-  - `do_django_release.py`
-  - Record commands shown at the end. Execute all but leave `git push --tags`,
-    both `scp` of binaries, and `twine upload` for later because it's a security
-    release.
+- [ ] Change version in `django/__init__.py` and maybe trove classifier:
+  - `VERSION = {{ release.version_tuple|format_version_tuple|safe }}`{% if not instance.is_security_release %}
+  - Ensure the "Development Status" trove classifier in `pyproject.toml` is: `{{ instance.trove_classifier }}``{% endif %}
+  - `git commit -a -m '{{ release.commit_prefix }} Bumped version for {{ release.version }} release.'`
+  - e.g. https://github.com/django/django/commit/25fec8940b24107e21314ab6616e18ce8dec1c1c
+- [ ] Run release script from https://code.djangoproject.com/wiki/ReleaseScript
+  - `PGP_KEY_ID={{ releaser.key_id }} PGP_KEY_URL={{ releaser.key_url }} DEST_FOLDER=~/fellowship/releases do_django_release.py`
+- [ ] Execute ALL commands except for upload to Django admin and except for upload to PyPI, including:
+  - `gpg --clearsign --digest-algo SHA256 <path-to-checksums-folder>/Django-{{ release.version }}.checksum.txt`
+  - `git tag --sign --message="Tag {{ release.version }}" {{ release.version }}`
+  - `git tag --verify {{ release.version }}`{% if release.status == "f" %}
 - [ ] BUMP **MINOR VERSION** in `django/__init__.py`
-  - `{{ release.version }}` -> `{{ release|next_version }}`
-  - `final` -> `alpha`
-  - `git commit -m '{{ release.commit_prefix }} Post-release version bump.'`
+  - `VERSION = {{ release|next_version_tuple|format_version_tuple|safe }}`
+  - `git commit -a -m '{{ release.commit_prefix }} Post-release version bump.'`{% endif %}
