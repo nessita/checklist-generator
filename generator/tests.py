@@ -151,8 +151,8 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
 
         self.assertNotInChecklistContent("5.2 before 5.2rc1", checklist_content)
         self.assertIn(
-            "- Affected product(s)/code base (SPLIT in product and version (X before Y) "
-            "in rows!):",
+            "- Affected product(s)/code base (SPLIT in product and version (X before Y)"
+            " in rows!):",
             checklist_content,
         )
         for release in ("5.1 before 5.1.8", "5.0 before 5.0.14"):
@@ -243,7 +243,9 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
             {
                 "lang": "en",
                 "type": "reporter",
-                "value": f"Django would like to thank {reporter} for reporting this issue.",
+                "value": (
+                    f"Django would like to thank {reporter} for reporting this issue."
+                ),
             }
         ]
         expected = [
@@ -343,12 +345,14 @@ class FeatureReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
         release = self.make_release(version="5.2", date=date(2025, 4, 2))
         instance = self.make_checklist(release=release, eom_release=eom_release)
         checklist_content = self.do_render_checklist(instance)
-        version_trove_classifier_updates = """- [ ] Local updates of version and trove classifier:
+        version_trove_classifier_updates = """
+- [ ] Local updates of version and trove classifier:
   - Update the version number in `django/__init__.py` for the release.
     - `VERSION = (5, 2, 0, "final", 0)`
   - Ensure the "Development Status" trove classifier in `pyproject.toml` is:
     - `Development Status :: 5 - Production/Stable`"""
-        post_release_bump = """- [ ] BUMP **MINOR VERSION** in `django/__init__.py`
+        post_release_bump = """
+- [ ] BUMP **MINOR VERSION** in `django/__init__.py`
   - `VERSION = (5, 2, 1, "alpha", 0)`
   - `git commit -m '[5.2.x] Post-release version bump.'`"""
         feature_release_tasks = [

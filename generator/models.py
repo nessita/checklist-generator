@@ -248,8 +248,8 @@ class Release(models.Model):  # This is the exact model from djangoproject.com
     is_lts = models.BooleanField(
         "Long Term Support",
         help_text=(
-            'Is this a release for an <abbr title="Long Term Support">LTS</abbr> Django '
-            "version (e.g. 5.2a1, 5.2, 5.2.4)?"
+            'Is this a release for an <abbr title="Long Term Support">LTS</abbr> '
+            "Django version (e.g. 5.2a1, 5.2, 5.2.4)?"
         ),
         default=False,
     )
@@ -497,7 +497,8 @@ class SecurityRelease(ReleaseChecklist):
             (
                 r.feature_version
                 if not r.is_pre_release
-                else f"{r.feature_version} (currently at {r.get_status_display()} status)"
+                else f"{r.feature_version} (currently at {r.get_status_display()} "
+                "status)"
             )
             for r in self.affected_releases
         ]
@@ -682,7 +683,10 @@ class SecurityIssue(models.Model):
                 {
                     "lang": "en",
                     "type": "reporter",
-                    "value": f"Django would like to thank {self.reporter} for reporting this issue.",
+                    "value": (
+                        f"Django would like to thank {self.reporter} for reporting "
+                        "this issue."
+                    ),
                 }
             ],
             "timeline": [
