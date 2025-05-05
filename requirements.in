@@ -1,2 +1,5 @@
 Django
 psycopg
+black
+flake8
+isort

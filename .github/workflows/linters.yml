@@ -1,0 +1,27 @@
+name: Linters
+
+on: [pull_request]
+
+jobs:
+  linting:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install linter dependencies
+        run: pip install --upgrade pip black flake8 isort
+
+      - name: Run Black
+        run: black --check .
+
+      - name: Run Flake8
+        run: flake8
+
+      - name: Run isort
+        run: isort --check --diff .
