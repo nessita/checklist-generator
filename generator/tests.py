@@ -30,8 +30,11 @@ class BaseChecklistTestCaseMixin:
             f.write(content)
 
     def make_releaser(self):
+        user = User.objects.create(
+            username=f"releaser-{uuid4()}", first_name="Merry", last_name="Pippin"
+        )
         return Releaser.objects.create(
-            user=User.objects.create(username=f"releaser-{uuid4()}"),
+            user=user,
             key_id="1234567890ABCDEF",
             key_url="https://github.com/releaser.gpg",
         )
@@ -147,7 +150,6 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
         self.make_security_issue(checklist, releases, cve_year_number="CVE-2025-22222")
 
         checklist_content = self.do_render_checklist(checklist)
-        self.debug_checklist(checklist_content)
 
         self.assertNotInChecklistContent("5.2 before 5.2rc1", checklist_content)
         self.assertIn(
@@ -176,6 +178,34 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
             checklist_content,
         )
         self.assertIn(wordwrap(blog, 80), checklist_content)
+
+    def test_render_checklist_download_links(self):
+        releases = [
+            self.make_release(version="4.2.21"),
+            self.make_release(version="5.1.9"),
+            self.make_release(version="5.2rc1"),
+        ]
+        checklist = self.make_checklist(releases=releases)
+        checklist_content = self.do_render_checklist(checklist)
+
+        expected = (
+            "The following releases have been issued\n"
+            "=======================================\n"
+            "\n"
+            "* Django 5.1.9 (`download Django 5.1.9\n"
+            "  <https://www.djangoproject.com/download/5.1.9/tarball/>`_ |\n"
+            "  `5.1.9 checksums\n"
+            "  <https://www.djangoproject.com/download/5.1.9/checksum/>`_)\n"
+            "* Django 4.2.21 (`download Django 4.2.21\n"
+            "  <https://www.djangoproject.com/download/4.2.21/tarball/>`_ |\n"
+            "  `4.2.21 checksums\n"
+            "  <https://www.djangoproject.com/download/4.2.21/checksum/>`_)\n"
+            "\n"
+            "The PGP key ID used for this release is Merry Pippin: "
+            "`1234567890ABCDEF <https://github.com/releaser.gpg>`_\n"
+        )
+        # Proper download links are shown.
+        self.assertIn(expected, checklist_content)
 
     def test_render_cve_json(self):
         releases = [
