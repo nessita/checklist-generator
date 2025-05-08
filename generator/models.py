@@ -400,7 +400,7 @@ class ReleaseChecklist(models.Model):
     def status(self):
         if (release := getattr(self, "release", None)) is not None:
             return self.release_status_code[release.status]
-        return ""
+        return "security"
 
     @cached_property
     def trove_classifier(self):
@@ -471,12 +471,8 @@ class PreRelease(ReleaseChecklist):
     def blogpost_summary(self):
         return (
             f"Today Django {self.verbose_version}, a preview/testing package for the "
-            f"upcoming Django {self.final_version} release, is available."
+            f"upcoming Django {self.release.feature_version} release, is available."
         )
-
-    @cached_property
-    def final_version(self):
-        return self.feature_release.version
 
     @cached_property
     def forum_post(self):
@@ -484,7 +480,8 @@ class PreRelease(ReleaseChecklist):
 
     @cached_property
     def slug(self):
-        return f"django-{self.final_version.replace('.', '')}-{self.status}-released"
+        slug_version = self.release.feature_version.replace(".", "")
+        return f"django-{slug_version}-{self.status}-released"
 
 
 class BugFixRelease(ReleaseChecklist):
@@ -504,6 +501,16 @@ class SecurityRelease(ReleaseChecklist):
     @cached_property
     def blogpost_title(self):
         return f"Django security releases issued: {self.version}"
+
+    @cached_property
+    def blogpost_summary(self):
+        enumerated_versions = enumerate_items(self.versions)
+        fix = "fix" if len(self.versions) > 1 else "fixes"
+        if (cves_length := len(self.cves)) == 1:
+            cves_info = "one security issue"
+        else:
+            cves_info = f"{cves_length} security issues"
+        return f"Django {enumerated_versions} {fix} {cves_info}"
 
     @cached_property
     def cves(self):
