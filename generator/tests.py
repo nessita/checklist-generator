@@ -29,6 +29,12 @@ class BaseChecklistTestCaseMixin:
         with open(f"{self.id()}-checklist.md", "w") as f:
             f.write(content)
 
+    def make_release(self, **kwargs):
+        version = kwargs.setdefault("version", "5.2")
+        kwargs.setdefault("date", date(2025, 4, 2))
+        kwargs.setdefault("is_lts", version.split(".", 1)[1].startswith("2"))
+        return Release.objects.create(**kwargs)
+
     def make_releaser(self):
         user = User.objects.create(
             username=f"releaser-{uuid4()}", first_name="Merry", last_name="Pippin"
@@ -63,6 +69,12 @@ class BaseChecklistTestCaseMixin:
         )
         self.assertIn(expected, content)
 
+    def assertPushAndAnnouncesAdded(self, checklist, content):
+        expected = render_to_string(
+            "generator/_push_changes_and_announce.md", {"instance": checklist}
+        )
+        self.assertIn(expected, content)
+
     @override_settings(
         TEMPLATES=[
             {
@@ -88,12 +100,6 @@ class BaseChecklistTestCaseMixin:
         self.assertNotInChecklistContent("INVALID", content)
 
         return content
-
-    def make_release(self, **kwargs):
-        version = kwargs.setdefault("version", "5.2")
-        kwargs.setdefault("date", date(2025, 4, 2))
-        kwargs.setdefault("is_lts", version.split(".", 1)[1].startswith("2"))
-        return Release.objects.create(**kwargs)
 
 
 class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
@@ -130,6 +136,42 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
             self.make_security_issue(checklist, releases=releases)
         return checklist
 
+    def test_affected_releases(self):
+        release51 = self.make_release(version="5.1.8")
+        release52 = self.make_release(version="5.2")
+        prerelease = self.make_release(version="6.0a1")
+        checklist = self.make_checklist(releases=[release51, release52, prerelease])
+        self.assertEqual(
+            checklist.affected_releases, [prerelease, release52, release51]
+        )
+
+    def test_blogpost_info(self):
+        release42 = self.make_release(version="4.2.13")
+        release51 = self.make_release(version="5.1.7")
+        release52 = self.make_release(version="5.2")
+        prerelease = self.make_release(version="6.0a1")
+        # Test proper use of Oxford comma.
+        for releases, expected in [
+            ([release52], "5.2"),
+            ([release52, prerelease], "5.2"),
+            ([release52, release51, prerelease], "5.2 and 5.1.7"),
+            ([release52, release51, release42, prerelease], "5.2, 5.1.7, and 4.2.13"),
+        ]:
+            with self.subTest(releases=releases):
+                checklist = self.make_checklist(releases=releases)
+                self.assertEqual(
+                    checklist.blogpost_title,
+                    f"Django security releases issued: {expected}",
+                )
+
+    def test_versions(self):
+        release51 = self.make_release(version="5.1.9")
+        release52 = self.make_release(version="5.2")
+        prerelease = self.make_release(version="6.0a1")
+        checklist = self.make_checklist(releases=[release51, release52, prerelease])
+        self.assertEqual(checklist.version, "5.2 and 5.1.9")
+        self.assertEqual(checklist.versions, ["5.2", "5.1.9"])
+
     def test_render_checklist_simple(self):
         checklist = self.make_checklist()
         checklist_content = self.do_render_checklist(checklist)
@@ -137,7 +179,13 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
             "- [ ] Submit a CVE Request https://cveform.mitre.org for all issues",
             checklist_content,
         )
-        self.assertStubReleaseNotesAdded(checklist.latest_release, checklist_content)
+        with self.subTest(task="Stub release notes added"):
+            self.assertStubReleaseNotesAdded(
+                checklist.latest_release, checklist_content
+            )
+
+        with self.subTest(task="Push and announce steps added"):
+            self.assertPushAndAnnouncesAdded(checklist, checklist_content)
 
     def test_render_checklist_affects_prerelease(self):
         releases = [
@@ -331,6 +379,11 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
 
 class PreReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
     checklist_class = PreRelease
+    status_to_version = {
+        "a": "alpha",
+        "b": "beta",
+        "rc": "release candidate",
+    }
 
     def make_checklist(self, **kwargs):
         future = now() + timedelta(days=75)
@@ -339,18 +392,38 @@ class PreReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
         )
         return super().make_checklist(feature_release=feature_release, **kwargs)
 
+    def test_affected_releases(self):
+        for status, verbose in self.status_to_version.items():
+            release = self.make_release(version=f"6.0{status}1")
+            with self.subTest(release=release):
+                checklist = self.make_checklist(release=release)
+                self.assertEqual(checklist.affected_releases, [release])
+
+    def test_blogpost_info(self):
+        for status, verbose in self.status_to_version.items():
+            release = self.make_release(version=f"6.0{status}1")
+            with self.subTest(release=release):
+                checklist = self.make_checklist(release=release)
+                self.assertEqual(
+                    checklist.blogpost_title, f"Django 6.0 {verbose} 1 released"
+                )
+
+    def test_versions(self):
+        for status, verbose in self.status_to_version.items():
+            version = f"6.0{status}1"
+            release = self.make_release(version=version)
+            with self.subTest(release=release):
+                checklist = self.make_checklist(release=release)
+                self.assertEqual(checklist.version, version)
+                self.assertEqual(checklist.versions, [version])
+
     def test_render_checklist(self):
-        status_to_version = {
-            "a": "alpha",
-            "b": "beta",
-            "rc": "release candidate",
-        }
-        for status, version in status_to_version.items():
+        for status, version in self.status_to_version.items():
             release = self.make_release(
                 version=f"5.2{status}1", date=date(2025, 4, 2), is_lts=True
             )
             with self.subTest(version=version):
-                instance = self.make_checklist(verbose_version=version, release=release)
+                instance = self.make_checklist(release=release)
                 checklist_content = self.do_render_checklist(instance)
                 self.assertIn(
                     "- [ ] Update the translation catalogs:", checklist_content
@@ -370,11 +443,27 @@ class PreReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
 class FeatureReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
     checklist_class = FeatureRelease
 
+    def test_affected_releases(self):
+        release = self.make_release(version="6.0")
+        checklist = self.make_checklist(release=release)
+        self.assertEqual(checklist.affected_releases, [release])
+
+    def test_blogpost_info(self):
+        release = self.make_release(version="6.0")
+        checklist = self.make_checklist(release=release)
+        self.assertEqual(checklist.blogpost_title, "Django 6.0 released")
+
+    def test_versions(self):
+        release = self.make_release(version="6.0")
+        checklist = self.make_checklist(release=release)
+        self.assertEqual(checklist.version, "6.0")
+        self.assertEqual(checklist.versions, ["6.0"])
+
     def test_render_checklist(self):
         eom_release = self.make_release(version="5.1", date=date(2024, 9, 2))
         release = self.make_release(version="5.2", date=date(2025, 4, 2))
-        instance = self.make_checklist(release=release, eom_release=eom_release)
-        checklist_content = self.do_render_checklist(instance)
+        checklist = self.make_checklist(release=release, eom_release=eom_release)
+        checklist_content = self.do_render_checklist(checklist)
         version_trove_classifier_updates = """
 - [ ] Local updates of version and trove classifier:
   - Update the version number in `django/__init__.py` for the release.
@@ -405,3 +494,6 @@ class FeatureReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
 
         with self.subTest(task="Stub release notes added"):
             self.assertStubReleaseNotesAdded(release, checklist_content)
+
+        with self.subTest(task="Push and announce steps added"):
+            self.assertPushAndAnnouncesAdded(checklist, checklist_content)
