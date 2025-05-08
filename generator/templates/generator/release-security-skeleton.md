@@ -80,7 +80,7 @@
   - e.g. https://www.djangoproject.com/admin/blog/entry/706/change/
   - Title: `{{ instance.blogpost_title }}`
   - Slug: `security-releases`
-  - Summary: `Django {{ versions|enumerate_items }} fix {% if cves_length == 1 %}one security issue{% else %}{{ cves_length }} security issues{% endif %}.`
+  - Summary: `{{ instance.blogpost_summary }}`
   - Body:
 ```
 {% include 'generator/release_security_blogpost.rst' %}

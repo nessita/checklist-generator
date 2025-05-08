@@ -12,7 +12,7 @@
   - Summary: `{{ instance.blogpost_summary }}`
   - Body:
 ```
-{% include instance.blogpost_template %}
+{% include instance.blogpost_template with final_version=release.feature_version %}
 ```
 {% if release.is_dot_zero %}
 - [ ] Create a new branch from the current stable branch in the [django-docs-translations repository](https://github.com/django/django-docs-translations):

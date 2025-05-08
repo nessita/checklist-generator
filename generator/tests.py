@@ -151,11 +151,15 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
         release52 = self.make_release(version="5.2")
         prerelease = self.make_release(version="6.0a1")
         # Test proper use of Oxford comma.
-        for releases, expected in [
-            ([release52], "5.2"),
-            ([release52, prerelease], "5.2"),
-            ([release52, release51, prerelease], "5.2 and 5.1.7"),
-            ([release52, release51, release42, prerelease], "5.2, 5.1.7, and 4.2.13"),
+        for releases, expected, verb in [
+            ([release52], "5.2", "fixes"),
+            ([release52, prerelease], "5.2", "fixes"),
+            ([release52, release51, prerelease], "5.2 and 5.1.7", "fix"),
+            (
+                [release52, release51, release42, prerelease],
+                "5.2, 5.1.7, and 4.2.13",
+                "fix",
+            ),
         ]:
             with self.subTest(releases=releases):
                 checklist = self.make_checklist(releases=releases)
@@ -163,6 +167,23 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
                     checklist.blogpost_title,
                     f"Django security releases issued: {expected}",
                 )
+                self.assertEqual(
+                    checklist.blogpost_summary,
+                    f"Django {expected} {verb} one security issue",
+                )
+
+    def test_blogpost_info_two_issues(self):
+        release51 = self.make_release(version="5.1.9")
+        release52 = self.make_release(version="5.2")
+        prerelease = self.make_release(version="6.0a1")
+        checklist = self.make_checklist(releases=[release51, release52, prerelease])
+        self.make_security_issue(checklist, releases=[release52])
+        self.assertEqual(
+            checklist.blogpost_template, "generator/release_security_blogpost.rst"
+        )
+        self.assertEqual(
+            checklist.blogpost_summary, "Django 5.2 and 5.1.9 fix 2 security issues"
+        )
 
     def test_versions(self):
         release51 = self.make_release(version="5.1.9")
@@ -407,6 +428,15 @@ class PreReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
                 self.assertEqual(
                     checklist.blogpost_title, f"Django 6.0 {verbose} 1 released"
                 )
+                self.assertEqual(
+                    checklist.blogpost_template,
+                    f"generator/release_{checklist.status}_blogpost.rst",
+                )
+                expected = (
+                    f"Today Django 6.0 {verbose} 1, a preview/testing package for the "
+                    f"upcoming Django 6.0 release, is available."
+                )
+                self.assertEqual(checklist.blogpost_summary, expected)
 
     def test_versions(self):
         for status, verbose in self.status_to_version.items():
@@ -439,6 +469,9 @@ class PreReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
                         checklist_content,
                     )
 
+                final_version_correct = f"Django 5.2 {version} 1 is now available."
+                self.assertIn(final_version_correct, checklist_content)
+
 
 class FeatureReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
     checklist_class = FeatureRelease
@@ -452,6 +485,10 @@ class FeatureReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
         release = self.make_release(version="6.0")
         checklist = self.make_checklist(release=release)
         self.assertEqual(checklist.blogpost_title, "Django 6.0 released")
+        self.assertEqual(
+            checklist.blogpost_template, "generator/release_final_blogpost.rst"
+        )
+        self.assertEqual(checklist.blogpost_summary, "Django 6.0 has been released!")
 
     def test_versions(self):
         release = self.make_release(version="6.0")
@@ -460,9 +497,12 @@ class FeatureReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
         self.assertEqual(checklist.versions, ["6.0"])
 
     def test_render_checklist(self):
+        eol_release = self.make_release(version="5.0", date=date(2023, 12, 4))
         eom_release = self.make_release(version="5.1", date=date(2024, 9, 2))
         release = self.make_release(version="5.2", date=date(2025, 4, 2))
-        checklist = self.make_checklist(release=release, eom_release=eom_release)
+        checklist = self.make_checklist(
+            release=release, eom_release=eom_release, eol_release=eol_release
+        )
         checklist_content = self.do_render_checklist(checklist)
         version_trove_classifier_updates = """
 - [ ] Local updates of version and trove classifier:
@@ -497,3 +537,13 @@ class FeatureReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
 
         with self.subTest(task="Push and announce steps added"):
             self.assertPushAndAnnouncesAdded(checklist, checklist_content)
+
+        with self.subTest(taks="Blogpost EOM and EOL Release"):
+            self.assertIn(
+                "With the release of Django 5.2, Django 5.1\nhas reached the "
+                "end of mainstream support.",
+                checklist_content,
+            )
+            self.assertIn(
+                "Django 5.0 has reached the end of extended support.", checklist_content
+            )
