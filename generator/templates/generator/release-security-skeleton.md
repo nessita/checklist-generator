@@ -46,16 +46,6 @@
       https://docs.djangoproject.com/en/dev/releases/security/
       ```
   {% endwith %}{% endfor %}
-- [ ] Write blogpost draft
-  - Include REPORTER and severity!
-  - e.g. https://www.djangoproject.com/admin/blog/entry/706/change/
-  - Title: `Django security releases issued: {{ versions|enumerate_items }}`
-  - Slug: `security-releases`
-  - Summary: `Django {{ versions|enumerate_items }} fix {% if cves_length == 1 %}one security issue{% else %}{{ cves_length }} security issues{% endif %}.`
-  - Body:
-```
-{% include 'generator/release_security_blogpost.rst' %}
-```
 
 ## 10 days before
 
@@ -85,6 +75,16 @@
     For details of severity levels, see:
     https://docs.djangoproject.com/en/dev/internals/security/#security-issue-severity-levels
     ```
+- [ ] Write blogpost draft
+  - Include REPORTER and severity!
+  - e.g. https://www.djangoproject.com/admin/blog/entry/706/change/
+  - Title: `{{ instance.blogpost_title }}`
+  - Slug: `security-releases`
+  - Summary: `Django {{ versions|enumerate_items }} fix {% if cves_length == 1 %}one security issue{% else %}{{ cves_length }} security issues{% endif %}.`
+  - Body:
+```
+{% include 'generator/release_security_blogpost.rst' %}
+```
 
 ## Release Day
 
@@ -134,35 +134,7 @@
 
 ### Final tasks -- PUSH EVERYTHING TO BRANCHES
 
-- [ ] Push changes to `main` and any stable branch, including pre-releases:
-  - `git checkout main && git log && git push -v`
-{% for release in instance.affected_releases %}
-  - `git checkout {{ release.stable_branch }} && git log`
-  - `git push -v`
-{% endfor %}
-- [ ] Push all the new tags at once
-  - `git push --tags`
-- [ ] Publish blogpost draft
-  - Include hashes!
-- [ ] Email to `django-announce@googlegroups.com`
-  - Title: `Django security releases issued: {{ versions|enumerate_items }}`
-  - Body with short notice and link to blogpost for more details:
-```
-Details are available on the Django project weblog:
-{{ instance.blogpost_link }}
-```
-
-- [ ] Post in forum https://forum.djangoproject.com/t/django-release-announcements/655/
-  - e.g. https://forum.djangoproject.com/t/django-release-announcements/655/71
-```
-## Django security releases issued: {{ versions|enumerate_items }}
-
-:mega: Announcement:
-{{ instance.blogpost_link }}
-
-:tada: Release notes:{% for version in versions %}
- * https://docs.djangoproject.com/en/dev/releases/{{ version }}{% endfor %}
-```
+{% include "generator/_push_changes_and_announce.md" %}
 - [ ] Send email to the OSS Security mailing list notifying about the release
   - To: `oss-security@lists.openwall.com`
   - Cc: `security@djangoproject.com`
