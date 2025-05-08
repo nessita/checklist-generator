@@ -29,7 +29,7 @@ def render_checklist(request, queryset):
     if (data := getattr(instance, "get_context_data", None)) is not None:
         context.update(data)
     checklist = render_to_string(instance.checklist_template, context, request=request)
-    return HttpResponse(checklist, content_type="text/markdown")
+    return HttpResponse(checklist, content_type="text/markdown; charset=utf-8")
 
 
 class ReleaseAdmin(admin.ModelAdmin):

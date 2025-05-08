@@ -82,7 +82,7 @@ class BaseChecklistTestCaseMixin:
 
         request = self.request_factory.get("/")
         response = render_checklist(request, [checklist_instance])
-        self.assertEqual(response["Content-Type"], "text/markdown")
+        self.assertEqual(response["Content-Type"], "text/markdown; charset=utf-8")
 
         content = response.content.decode("utf-8")
         self.assertNotInChecklistContent("INVALID", content)
