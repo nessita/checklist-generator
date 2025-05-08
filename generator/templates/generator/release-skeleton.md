@@ -6,7 +6,7 @@
 - [ ] Resolve release blockers
 - [ ] Update [forum post]({{ instance.forum_post }}) with any relevant news
 - [ ] Draft blog post
-  - Headline: `Django {{ instance.verbose_version }} released`
+  - Headline: `{{ instance.blogpost_title }}`
   - Slug: `{{ slug }}`
   - Format: reStructuredText
   - Summary: `{{ instance.blogpost_summary }}`
@@ -52,7 +52,7 @@
   - `scp -i ~/.ssh/dali/id_rsa dist/Django-* www@origin.djangoproject.com:/home/www/www/media/releases/{{ release.feature_version }}`
   - `git tag --sign --message="Tag {{ version }}" {{ version }}`
   - `git tag --verify {{ version }}`
-  - `git push --tags`{% if release.status == "f" %}
+{% if release.status == "f" %}
 - [ ] BUMP **MINOR VERSION** in `django/__init__.py`
   - `VERSION = {{ release|next_version_tuple|format_version_tuple|safe }}`
   - `git commit -m '{{ release.commit_prefix }} Post-release version bump.'`{% endif %}
@@ -60,16 +60,14 @@
   - `RELEASE_VERSION={{ version }} test_new_version.sh`
 - [ ] Confirm the release with Jenkins
   - https://djangoci.com/job/confirm-release/: `{{ version }}`
-- [ ] Push your work: version update(s), including the new tag
-  - `git push`
-  - `git push --tags`
 - [ ] Upload to PyPI
   - `twine upload dist/*`
   - https://pypi.org/project/Django/{{ version }}/
 - [ ] Go to the[ Add release page in the admin](https://www.djangoproject.com/admin/releases/release/add/), enter the new release number
   - {{ version }} ({% if not release.is_lts %}non {% endif %}LTS)
   - https://www.djangoproject.com/admin/releases/release/{{ version }}/change/
-- [ ] Publish blog post{% if release.is_dot_zero %}
+{% include "generator/_push_changes_and_announce.md" %}
+{% if release.is_dot_zero %}
 - [ ] Update the metadata for the docs in https://www.djangoproject.com/admin/docs/documentrelease/:
   - Set `is_default` flag to `True` in the `DocumentRelease` English entry for this release (this will automatically flip all the others to `False`).
   - Create new `DocumentRelease` objects for each language that has an entry for the previous release.
@@ -78,13 +76,6 @@
   - `git checkout {{ release.stable_branch }} && git pull -v`
   - `python manage_translations.py robots_txt`
   - e.g. https://github.com/django/djangoproject.com/pull/1445{% endif %}
-- [ ] Post the release announcement to the [django-announce](https://docs.djangoproject.com/en/dev/internals/mailing-lists/#django-announce-mailing-list) and in the Django Forum.
-  - Subject: `Django {{ instance.verbose_version }} released`
-  - Body:
-```
-Details are available on the Django project weblog:
-{{ instance.blogpost_link }}
-```
 {% if release.status != "f" %}
 - [ ] Update the translation catalogs:
   - Make a new branch from the recently released stable branch:
