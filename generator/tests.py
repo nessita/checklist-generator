@@ -1,6 +1,6 @@
 import json
 import random
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from uuid import uuid4
 
 from django.contrib.auth.models import User
@@ -275,6 +275,50 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
         )
         # Proper download links are shown.
         self.assertIn(expected, checklist_content)
+
+    def test_render_checklist_rst_backticks(self):
+        releases = [
+            self.make_release(version="5.1.9"),
+            self.make_release(version="5.2.1"),
+        ]
+        checklist = self.make_checklist(
+            releases=[], when=datetime(2025, 5, 7, tzinfo=UTC)
+        )
+        self.make_security_issue(
+            checklist,
+            releases,
+            cve_year_number="CVE-2025-11111",
+            summary="Denial-of-service possibility in `strip_tags()`",
+        )
+        self.make_security_issue(
+            checklist,
+            releases,
+            cve_year_number="CVE-2025-22222",
+            summary="Denial-of-service in `LoginView` and `LogoutView`",
+        )
+        checklist_content = self.do_render_checklist(checklist)
+
+        expected = [
+            "CVE-2025-11111: Denial-of-service possibility in ``strip_tags()``\n"
+            "=================================================================\n",
+            "CVE-2025-11111: Denial-of-service possibility in ``strip_tags()``\n"
+            "-----------------------------------------------------------------\n",
+            "CVE-2025-22222: Denial-of-service in ``LoginView`` and ``LogoutView``\n"
+            "=====================================================================\n",
+            "CVE-2025-22222: Denial-of-service in ``LoginView`` and ``LogoutView``\n"
+            "---------------------------------------------------------------------\n",
+            "May 7, 2025 - :cve:`2025-11111`\n"
+            "-------------------------------\n\n"
+            "Denial-of-service possibility in ``strip_tags()``.\n"
+            f"`Full description\n<{checklist.blogpost_link}>`__",
+            "May 7, 2025 - :cve:`2025-22222`\n"
+            "-------------------------------\n\n"
+            "Denial-of-service in ``LoginView`` and ``LogoutView``.\n"
+            f"`Full description\n<{checklist.blogpost_link}>`__",
+        ]
+        for headline in expected:
+            with self.subTest(headline=headline):
+                self.assertIn(headline, checklist_content)
 
     def test_render_cve_json(self):
         releases = [
