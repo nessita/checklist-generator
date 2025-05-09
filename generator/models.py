@@ -389,14 +389,26 @@ class ReleaseChecklist(models.Model):
         return f"generator/release_{self.status}_blogpost.rst"
 
     @cached_property
+    def blogpost_title(self):
+        return f"Django {self.verbose_version} released"
+
+    @cached_property
     def blogpost_summary(self):
         return f"Django {self.version} has been released!"
+
+    @property
+    def is_security_release(self):
+        return "security" in self.slug
+
+    @cached_property
+    def slug(self):
+        return f"django-{self.version.replace('.', '')}-released"
 
     @cached_property
     def status(self):
         if (release := getattr(self, "release", None)) is not None:
             return self.release_status_code[release.status]
-        return ""
+        return "security"
 
     @cached_property
     def trove_classifier(self):
@@ -408,10 +420,27 @@ class ReleaseChecklist(models.Model):
         return result
 
     @cached_property
-    def version(self):
+    def affected_releases(self):
         if (release := getattr(self, "release", None)) is not None:
-            return release.version
-        return "many"
+            return [release]
+        return []
+
+    @cached_property
+    def version(self):
+        return enumerate_items(self.versions)
+
+    @cached_property
+    def versions(self):
+        return [r.version for r in self.affected_releases]
+
+    @cached_property
+    def verbose_version(self):
+        status = (
+            f" {self.release.get_status_display()} 1"
+            if self.release.status != "f"
+            else ""
+        )
+        return f"{self.release.feature_version}{status}"
 
 
 class FeatureRelease(ReleaseChecklist):
@@ -441,25 +470,17 @@ class FeatureRelease(ReleaseChecklist):
     def slug(self):
         return f"django-{self.version.replace('.', '')}-released"
 
-    def verbose_version(self):
-        return self.version
-
 
 class PreRelease(ReleaseChecklist):
     release = models.OneToOneField(Release, null=True, on_delete=models.SET_NULL)
     feature_release = models.ForeignKey(FeatureRelease, on_delete=models.CASCADE)
-    verbose_version = models.CharField(max_length=100)
 
     @cached_property
     def blogpost_summary(self):
         return (
             f"Today Django {self.verbose_version}, a preview/testing package for the "
-            f"upcoming Django {self.final_version} release, is available."
+            f"upcoming Django {self.release.feature_version} release, is available."
         )
-
-    @cached_property
-    def final_version(self):
-        return self.feature_release.version
 
     @cached_property
     def forum_post(self):
@@ -467,7 +488,8 @@ class PreRelease(ReleaseChecklist):
 
     @cached_property
     def slug(self):
-        return f"django-{self.final_version.replace('.', '')}-{self.status}-released"
+        slug_version = self.release.feature_version.replace(".", "")
+        return f"django-{slug_version}-{self.status}-released"
 
 
 class BugFixRelease(ReleaseChecklist):
@@ -476,9 +498,6 @@ class BugFixRelease(ReleaseChecklist):
 
     slug = "bugfix-releases"
 
-    def verbose_version(self):
-        return self.version
-
 
 class SecurityRelease(ReleaseChecklist):
     checklist_template = "generator/release-security-skeleton.md"
@@ -486,6 +505,20 @@ class SecurityRelease(ReleaseChecklist):
 
     def __str__(self):
         return f"Security release on {self.when}"
+
+    @cached_property
+    def blogpost_title(self):
+        return f"Django security releases issued: {self.version}"
+
+    @cached_property
+    def blogpost_summary(self):
+        enumerated_versions = enumerate_items(self.versions)
+        fix = "fix" if len(self.versions) > 1 else "fixes"
+        if (cves_length := len(self.cves)) == 1:
+            cves_info = "one security issue"
+        else:
+            cves_info = f"{cves_length} security issues"
+        return f"Django {enumerated_versions} {fix} {cves_info}"
 
     @cached_property
     def cves(self):
@@ -511,11 +544,8 @@ class SecurityRelease(ReleaseChecklist):
         )
 
     @cached_property
-    def version(self):
-        return " / ".join(self.versions)
-
-    @cached_property
     def versions(self):
+        # Same as ReleaseChecklist, but leave pre-releases out.
         return [r.version for r in self.affected_releases if not r.is_pre_release]
 
     @cached_property
@@ -649,7 +679,6 @@ class SecurityIssue(models.Model):
                     },
                 ]
             )
-        enumerated_versions = enumerate_items(versions)
         return {
             "title": self.summary.replace("`", ""),
             "metrics": [
@@ -675,7 +704,7 @@ class SecurityIssue(models.Model):
             "references": [
                 {
                     "url": self.release.blogpost_link,
-                    "name": f"Django security releases issued: {enumerated_versions}",
+                    "name": self.release.blogpost_title,
                     "tags": ["vendor-advisory"],
                 }
             ],

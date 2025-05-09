@@ -18,10 +18,10 @@ and data loss fixes until {{ instance.eom_release.eol_date }}. All users are enc
 upgrade before then to continue receiving fixes for security issues.
 {% endif %}
 {% if instance.eol_release %}
-Django {{ instance.eol_release.final_version }} has reached the end of extended support.
+Django {{ instance.eol_release.feature_version }} has reached the end of extended support.
 The final security release, `{{ instance.eol_release.version }}
 <https://docs.djangoproject.com/en/stable/releases/{{ instance.eol_release.version }}/>`_,
-was issued on {{ instance.eol_release.date }}. All Django {{ instance.eol_release.final_version }}
+was issued on {{ instance.eol_release.date }}. All Django {{ instance.eol_release.feature_version }}
 users are encouraged to `upgrade
 <https://docs.djangoproject.com/en/dev/howto/upgrade-version/>`_ to a supported
 Django version.

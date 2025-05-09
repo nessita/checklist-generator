@@ -32,12 +32,13 @@ def next_release_date(value):
 def enumerate_items(items, item_formatter=None):
     if item_formatter is not None:
         items = [item_formatter(item) for item in items]
-    assert len(items) > 0, f"{items=} should have at least one element."
+    if not items:
+        return ""
     *rest, last = items
     if not rest:
         return last
 
-    last_joiner = ", and " if len(rest) > 2 else " and "  # Oxford comma
+    last_joiner = ", and " if len(rest) > 1 else " and "  # Oxford comma
     return last_joiner.join((", ".join(rest), last))
 
 
@@ -70,6 +71,11 @@ def format_version_for_blogpost(version):
 @register.filter
 def format_versions_for_blogpost(versions):
     return enumerate_items(versions, item_formatter=format_version_for_blogpost)
+
+
+@register.filter
+def rst_backticks(text):
+    return text.replace("`", "``")
 
 
 @register.filter

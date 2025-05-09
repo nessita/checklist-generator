@@ -1,6 +1,7 @@
 import json
 import random
-from datetime import date, datetime, timedelta
+import re
+from datetime import UTC, date, datetime, timedelta
 from uuid import uuid4
 
 from django.contrib.auth.models import User
@@ -29,9 +30,18 @@ class BaseChecklistTestCaseMixin:
         with open(f"{self.id()}-checklist.md", "w") as f:
             f.write(content)
 
+    def make_release(self, **kwargs):
+        version = kwargs.setdefault("version", "5.2")
+        kwargs.setdefault("date", date(2025, 4, 2))
+        kwargs.setdefault("is_lts", version.split(".", 1)[1].startswith("2"))
+        return Release.objects.create(**kwargs)
+
     def make_releaser(self):
+        user = User.objects.create(
+            username=f"releaser-{uuid4()}", first_name="Merry", last_name="Pippin"
+        )
         return Releaser.objects.create(
-            user=User.objects.create(username=f"releaser-{uuid4()}"),
+            user=user,
             key_id="1234567890ABCDEF",
             key_url="https://github.com/releaser.gpg",
         )
@@ -45,6 +55,12 @@ class BaseChecklistTestCaseMixin:
             releaser=releaser, when=when, **kwargs
         )
 
+    def assertInChecklistContent(self, text, content):
+        """Like assertIn, but without worrying about whitespaces."""
+        # Collapse all whitespace to single spaces.
+        normalized_content = re.sub(r"\s+", " ", content)
+        self.assertIn(text, normalized_content)
+
     def assertNotInChecklistContent(self, text, content):
         """Show more readable error message on `assertNotIn` failures."""
         idx = content.find(text)
@@ -57,6 +73,12 @@ class BaseChecklistTestCaseMixin:
     def assertStubReleaseNotesAdded(self, release, content):
         expected = render_to_string(
             "generator/_stub_release_notes.md", {"release": release}
+        )
+        self.assertIn(expected, content)
+
+    def assertPushAndAnnouncesAdded(self, checklist, content):
+        expected = render_to_string(
+            "generator/_push_changes_and_announce.md", {"instance": checklist}
         )
         self.assertIn(expected, content)
 
@@ -79,18 +101,12 @@ class BaseChecklistTestCaseMixin:
 
         request = self.request_factory.get("/")
         response = render_checklist(request, [checklist_instance])
-        self.assertEqual(response["Content-Type"], "text/markdown")
+        self.assertEqual(response["Content-Type"], "text/markdown; charset=utf-8")
 
         content = response.content.decode("utf-8")
         self.assertNotInChecklistContent("INVALID", content)
 
         return content
-
-    def make_release(self, **kwargs):
-        version = kwargs.setdefault("version", "5.2")
-        kwargs.setdefault("date", date(2025, 4, 2))
-        kwargs.setdefault("is_lts", version.split(".", 1)[1].startswith("2"))
-        return Release.objects.create(**kwargs)
 
 
 class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
@@ -127,6 +143,63 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
             self.make_security_issue(checklist, releases=releases)
         return checklist
 
+    def test_affected_releases(self):
+        release51 = self.make_release(version="5.1.8")
+        release52 = self.make_release(version="5.2")
+        prerelease = self.make_release(version="6.0a1")
+        checklist = self.make_checklist(releases=[release51, release52, prerelease])
+        self.assertEqual(
+            checklist.affected_releases, [prerelease, release52, release51]
+        )
+
+    def test_blogpost_info(self):
+        release42 = self.make_release(version="4.2.13")
+        release51 = self.make_release(version="5.1.7")
+        release52 = self.make_release(version="5.2")
+        prerelease = self.make_release(version="6.0a1")
+        # Test proper use of Oxford comma.
+        for releases, expected, verb in [
+            ([release52], "5.2", "fixes"),
+            ([release52, prerelease], "5.2", "fixes"),
+            ([release52, release51, prerelease], "5.2 and 5.1.7", "fix"),
+            (
+                [release52, release51, release42, prerelease],
+                "5.2, 5.1.7, and 4.2.13",
+                "fix",
+            ),
+        ]:
+            with self.subTest(releases=releases):
+                checklist = self.make_checklist(releases=releases)
+                self.assertEqual(
+                    checklist.blogpost_title,
+                    f"Django security releases issued: {expected}",
+                )
+                self.assertEqual(
+                    checklist.blogpost_summary,
+                    f"Django {expected} {verb} one security issue",
+                )
+
+    def test_blogpost_info_two_issues(self):
+        release51 = self.make_release(version="5.1.9")
+        release52 = self.make_release(version="5.2")
+        prerelease = self.make_release(version="6.0a1")
+        checklist = self.make_checklist(releases=[release51, release52, prerelease])
+        self.make_security_issue(checklist, releases=[release52])
+        self.assertEqual(
+            checklist.blogpost_template, "generator/release_security_blogpost.rst"
+        )
+        self.assertEqual(
+            checklist.blogpost_summary, "Django 5.2 and 5.1.9 fix 2 security issues"
+        )
+
+    def test_versions(self):
+        release51 = self.make_release(version="5.1.9")
+        release52 = self.make_release(version="5.2")
+        prerelease = self.make_release(version="6.0a1")
+        checklist = self.make_checklist(releases=[release51, release52, prerelease])
+        self.assertEqual(checklist.version, "5.2 and 5.1.9")
+        self.assertEqual(checklist.versions, ["5.2", "5.1.9"])
+
     def test_render_checklist_simple(self):
         checklist = self.make_checklist()
         checklist_content = self.do_render_checklist(checklist)
@@ -134,7 +207,13 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
             "- [ ] Submit a CVE Request https://cveform.mitre.org for all issues",
             checklist_content,
         )
-        self.assertStubReleaseNotesAdded(checklist.latest_release, checklist_content)
+        with self.subTest(task="Stub release notes added"):
+            self.assertStubReleaseNotesAdded(
+                checklist.latest_release, checklist_content
+            )
+
+        with self.subTest(task="Pust and announce steps added"):
+            self.assertPushAndAnnouncesAdded(checklist, checklist_content)
 
     def test_render_checklist_affects_prerelease(self):
         releases = [
@@ -142,12 +221,12 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
             self.make_release(version="5.1.8", date=date(2025, 4, 2)),
             self.make_release(version="5.2rc1", date=date(2025, 3, 19)),
         ]
-        checklist = self.make_checklist(releases=[])
+        when = datetime(2025, 5, 7, 11, 18, 23, tzinfo=UTC)
+        checklist = self.make_checklist(releases=[], when=when)
         self.make_security_issue(checklist, releases, cve_year_number="CVE-2025-11111")
         self.make_security_issue(checklist, releases, cve_year_number="CVE-2025-22222")
 
         checklist_content = self.do_render_checklist(checklist)
-        self.debug_checklist(checklist_content)
 
         self.assertNotInChecklistContent("5.2 before 5.2rc1", checklist_content)
         self.assertIn(
@@ -157,8 +236,22 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
         )
         for release in ("5.1 before 5.1.8", "5.0 before 5.0.14"):
             with self.subTest(release=release):
-                expected = f"[row 1] Django\n      [row 2] {release}"
-                self.assertIn(expected, checklist_content)
+                expected = f"[row 1] Django [row 2] {release}"
+                self.assertInChecklistContent(expected, checklist_content)
+
+        cves = checklist.securityissue_set.all()
+        prenotification = [
+            "Create a new text file `prenotification-email.txt` with content",
+            "a set of security releases will be issued on Wednesday, May 7, 2025 "
+            "around 1118 UTC",
+            *(cve.headline_for_blogpost for cve in cves),
+            "Affected supported versions =========================== "
+            + " ".join(f"* Django {branch}" for branch in checklist.affected_branches),
+            *(f"* Django {version}" for version in checklist.versions),
+        ]
+        for detail in prenotification:
+            with self.subTest(detail=detail):
+                self.assertInChecklistContent(detail, checklist_content)
 
     def test_render_checklist_blogdescription_display(self):
         checklist = self.make_checklist(releases=[])
@@ -176,6 +269,78 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
             checklist_content,
         )
         self.assertIn(wordwrap(blog, 80), checklist_content)
+
+    def test_render_checklist_download_links(self):
+        releases = [
+            self.make_release(version="4.2.21"),
+            self.make_release(version="5.1.9"),
+            self.make_release(version="5.2rc1"),
+        ]
+        checklist = self.make_checklist(releases=releases)
+        checklist_content = self.do_render_checklist(checklist)
+
+        expected = (
+            "The following releases have been issued\n"
+            "=======================================\n"
+            "\n"
+            "* Django 5.1.9 (`download Django 5.1.9\n"
+            "  <https://www.djangoproject.com/download/5.1.9/tarball/>`_ |\n"
+            "  `5.1.9 checksums\n"
+            "  <https://www.djangoproject.com/download/5.1.9/checksum/>`_)\n"
+            "* Django 4.2.21 (`download Django 4.2.21\n"
+            "  <https://www.djangoproject.com/download/4.2.21/tarball/>`_ |\n"
+            "  `4.2.21 checksums\n"
+            "  <https://www.djangoproject.com/download/4.2.21/checksum/>`_)\n"
+            "\n"
+            "The PGP key ID used for this release is Merry Pippin: "
+            "`1234567890ABCDEF <https://github.com/releaser.gpg>`_\n"
+        )
+        # Proper download links are shown.
+        self.assertIn(expected, checklist_content)
+
+    def test_render_checklist_rst_backticks(self):
+        releases = [
+            self.make_release(version="5.1.9"),
+            self.make_release(version="5.2.1"),
+        ]
+        checklist = self.make_checklist(
+            releases=[], when=datetime(2025, 5, 7, tzinfo=UTC)
+        )
+        self.make_security_issue(
+            checklist,
+            releases,
+            cve_year_number="CVE-2025-11111",
+            summary="Denial-of-service possibility in `strip_tags()`",
+        )
+        self.make_security_issue(
+            checklist,
+            releases,
+            cve_year_number="CVE-2025-22222",
+            summary="Denial-of-service in `LoginView` and `LogoutView`",
+        )
+        checklist_content = self.do_render_checklist(checklist)
+
+        expected = [
+            "CVE-2025-11111: Denial-of-service possibility in ``strip_tags()``\n"
+            "=================================================================\n",
+            "CVE-2025-11111: Denial-of-service possibility in ``strip_tags()``\n"
+            "-----------------------------------------------------------------\n",
+            "CVE-2025-22222: Denial-of-service in ``LoginView`` and ``LogoutView``\n"
+            "=====================================================================\n",
+            "CVE-2025-22222: Denial-of-service in ``LoginView`` and ``LogoutView``\n"
+            "---------------------------------------------------------------------\n",
+            "May 7, 2025 - :cve:`2025-11111`\n"
+            "-------------------------------\n\n"
+            "Denial-of-service possibility in ``strip_tags()``.\n"
+            f"`Full description\n<{checklist.blogpost_link}>`__",
+            "May 7, 2025 - :cve:`2025-22222`\n"
+            "-------------------------------\n\n"
+            "Denial-of-service in ``LoginView`` and ``LogoutView``.\n"
+            f"`Full description\n<{checklist.blogpost_link}>`__",
+        ]
+        for headline in expected:
+            with self.subTest(headline=headline):
+                self.assertIn(headline, checklist_content)
 
     def test_render_cve_json(self):
         releases = [
@@ -301,6 +466,11 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
 
 class PreReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
     checklist_class = PreRelease
+    status_to_version = {
+        "a": "alpha",
+        "b": "beta",
+        "rc": "release candidate",
+    }
 
     def make_checklist(self, **kwargs):
         future = now() + timedelta(days=75)
@@ -309,18 +479,47 @@ class PreReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
         )
         return super().make_checklist(feature_release=feature_release, **kwargs)
 
+    def test_affected_releases(self):
+        for status, verbose in self.status_to_version.items():
+            release = self.make_release(version=f"6.0{status}1")
+            with self.subTest(release=release):
+                checklist = self.make_checklist(release=release)
+                self.assertEqual(checklist.affected_releases, [release])
+
+    def test_blogpost_info(self):
+        for status, verbose in self.status_to_version.items():
+            release = self.make_release(version=f"6.0{status}1")
+            with self.subTest(release=release):
+                checklist = self.make_checklist(release=release)
+                self.assertEqual(
+                    checklist.blogpost_title, f"Django 6.0 {verbose} 1 released"
+                )
+                self.assertEqual(
+                    checklist.blogpost_template,
+                    f"generator/release_{checklist.status}_blogpost.rst",
+                )
+                expected = (
+                    f"Today Django 6.0 {verbose} 1, a preview/testing package for the "
+                    f"upcoming Django 6.0 release, is available."
+                )
+                self.assertEqual(checklist.blogpost_summary, expected)
+
+    def test_versions(self):
+        for status, verbose in self.status_to_version.items():
+            version = f"6.0{status}1"
+            release = self.make_release(version=version)
+            with self.subTest(release=release):
+                checklist = self.make_checklist(release=release)
+                self.assertEqual(checklist.version, version)
+                self.assertEqual(checklist.versions, [version])
+
     def test_render_checklist(self):
-        status_to_version = {
-            "a": "alpha",
-            "b": "beta",
-            "rc": "release candidate",
-        }
-        for status, version in status_to_version.items():
+        for status, version in self.status_to_version.items():
             release = self.make_release(
                 version=f"5.2{status}1", date=date(2025, 4, 2), is_lts=True
             )
             with self.subTest(version=version):
-                instance = self.make_checklist(verbose_version=version, release=release)
+                instance = self.make_checklist(release=release)
                 checklist_content = self.do_render_checklist(instance)
                 self.assertIn(
                     "- [ ] Update the translation catalogs:", checklist_content
@@ -336,25 +535,53 @@ class PreReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
                         checklist_content,
                     )
 
+                final_version_correct = f"Django 5.2 {version} 1 is now available."
+                self.assertIn(final_version_correct, checklist_content)
+
 
 class FeatureReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
     checklist_class = FeatureRelease
 
+    def test_affected_releases(self):
+        release = self.make_release(version="6.0")
+        checklist = self.make_checklist(release=release)
+        self.assertEqual(checklist.affected_releases, [release])
+
+    def test_blogpost_info(self):
+        release = self.make_release(version="6.0")
+        checklist = self.make_checklist(release=release)
+        self.assertEqual(checklist.blogpost_title, "Django 6.0 released")
+        self.assertEqual(
+            checklist.blogpost_template, "generator/release_final_blogpost.rst"
+        )
+        self.assertEqual(checklist.blogpost_summary, "Django 6.0 has been released!")
+
+    def test_versions(self):
+        release = self.make_release(version="6.0")
+        checklist = self.make_checklist(release=release)
+        self.assertEqual(checklist.version, "6.0")
+        self.assertEqual(checklist.versions, ["6.0"])
+
     def test_render_checklist(self):
+        eol_release = self.make_release(version="5.0", date=date(2023, 12, 4))
         eom_release = self.make_release(version="5.1", date=date(2024, 9, 2))
         release = self.make_release(version="5.2", date=date(2025, 4, 2))
-        instance = self.make_checklist(release=release, eom_release=eom_release)
-        checklist_content = self.do_render_checklist(instance)
-        version_trove_classifier_updates = """
-- [ ] Local updates of version and trove classifier:
-  - Update the version number in `django/__init__.py` for the release.
-    - `VERSION = (5, 2, 0, "final", 0)`
-  - Ensure the "Development Status" trove classifier in `pyproject.toml` is:
-    - `Development Status :: 5 - Production/Stable`"""
-        post_release_bump = """
-- [ ] BUMP **MINOR VERSION** in `django/__init__.py`
-  - `VERSION = (5, 2, 1, "alpha", 0)`
-  - `git commit -m '[5.2.x] Post-release version bump.'`"""
+        checklist = self.make_checklist(
+            release=release, eom_release=eom_release, eol_release=eol_release
+        )
+        checklist_content = self.do_render_checklist(checklist)
+        version_trove_classifier_updates = (
+            "- [ ] Change version in `django/__init__.py` and maybe trove classifier:\n"
+            '  - `VERSION = (5, 2, 0, "final", 0)`\n'
+            '  - Ensure the "Development Status" trove classifier in `pyproject.toml` '
+            "is: `Development Status :: 5 - Production/Stable``\n"
+            "  - `git commit -a -m '[5.2.x] Bumped version for 5.2 release.'`\n"
+        )
+        post_release_bump = (
+            "- [ ] BUMP **MINOR VERSION** in `django/__init__.py`\n"
+            '  - `VERSION = (5, 2, 1, "alpha", 0)`\n'
+            "  - `git commit -a -m '[5.2.x] Post-release version bump.'`"
+        )
         feature_release_tasks = [
             "- Remove the `UNDER DEVELOPMENT` header at the top of the release notes",
             "- Remove the `Expected` prefix and update the release date if necessary",
@@ -375,3 +602,16 @@ class FeatureReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
 
         with self.subTest(task="Stub release notes added"):
             self.assertStubReleaseNotesAdded(release, checklist_content)
+
+        with self.subTest(task="Pust and announce steps added"):
+            self.assertPushAndAnnouncesAdded(checklist, checklist_content)
+
+        with self.subTest(taks="Blogpost EOM and EOL Release"):
+            self.assertIn(
+                "With the release of Django 5.2, Django 5.1\nhas reached the "
+                "end of mainstream support.",
+                checklist_content,
+            )
+            self.assertIn(
+                "Django 5.0 has reached the end of extended support.", checklist_content
+            )
