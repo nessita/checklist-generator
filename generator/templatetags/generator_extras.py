@@ -74,6 +74,11 @@ def format_versions_for_blogpost(versions):
 
 
 @register.filter
+def rst_backticks(text):
+    return text.replace("`", "``")
+
+
+@register.filter
 def rst_underline_for_headline(headline, headline_char="="):
     headline_underline = headline_char * len(headline)
     return f"{headline}\n{headline_underline}"
