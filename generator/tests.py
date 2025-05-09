@@ -1,5 +1,6 @@
 import json
 import random
+import re
 from datetime import UTC, date, datetime, timedelta
 from uuid import uuid4
 
@@ -26,8 +27,10 @@ class BaseChecklistTestCaseMixin:
     request_factory = RequestFactory()
 
     def debug_checklist(self, content):
-        with open(f"{self.id()}-checklist.md", "w") as f:
+        fname = f"{self.id()}-checklist.md"
+        with open(fname, "w") as f:
             f.write(content)
+        return fname
 
     def make_release(self, **kwargs):
         version = kwargs.setdefault("version", "5.2")
@@ -53,6 +56,18 @@ class BaseChecklistTestCaseMixin:
         return self.checklist_class.objects.create(
             releaser=releaser, when=when, **kwargs
         )
+
+    def assertInChecklistContent(self, text, content, flat=False):
+        """Like assertIn, but without worrying about whitespaces."""
+        if flat:
+            # Collapse all whitespace to single spaces.
+            content = re.sub(r"\s+", " ", content)
+        if text not in content:
+            fname = self.debug_checklist(content)
+            self.fail(
+                f"The given:\n{text}\nis not in the checklist content, which was "
+                f"stored in {fname} for further debugging."
+            )
 
     def assertNotInChecklistContent(self, text, content):
         """Show more readable error message on `assertNotIn` failures."""
@@ -214,7 +229,8 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
             self.make_release(version="5.1.8", date=date(2025, 4, 2)),
             self.make_release(version="5.2rc1", date=date(2025, 3, 19)),
         ]
-        checklist = self.make_checklist(releases=[])
+        when = datetime(2025, 5, 7, 11, 18, 23, tzinfo=UTC)
+        checklist = self.make_checklist(releases=[], when=when)
         self.make_security_issue(checklist, releases, cve_year_number="CVE-2025-11111")
         self.make_security_issue(checklist, releases, cve_year_number="CVE-2025-22222")
 
@@ -228,8 +244,23 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
         )
         for release in ("5.1 before 5.1.8", "5.0 before 5.0.14"):
             with self.subTest(release=release):
-                expected = f"[row 1] Django\n      [row 2] {release}"
-                self.assertIn(expected, checklist_content)
+                expected = f"[row 1] Django [row 2] {release}"
+                self.assertInChecklistContent(expected, checklist_content, flat=True)
+
+        cves = checklist.securityissue_set.all()
+        prenotification = [
+            "Create a new text file `prenotification-email.txt` with content",
+            "a set of security releases will be issued on Wednesday, May 7, 2025 "
+            "around 11:18 UTC",
+            *(cve.headline_for_blogpost for cve in cves),
+            "Affected supported versions =========================== "
+            + " ".join(f"* Django {branch}" for branch in checklist.affected_branches),
+            "* Django 5.0.14",
+            "* Django 5.1.8",
+        ]
+        for detail in prenotification:
+            with self.subTest(detail=detail):
+                self.assertInChecklistContent(detail, checklist_content, flat=True)
 
     def test_render_checklist_blogdescription_display(self):
         checklist = self.make_checklist(releases=[])
