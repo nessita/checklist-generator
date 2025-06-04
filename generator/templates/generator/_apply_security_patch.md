@@ -3,7 +3,9 @@
 - [ ] Apply patch
   - `git am path/to/patch/for/{{ release }}`
   - `git am --abort` to the rescue if there are issues
-{% if release != "main" %}- [ ] Add `{{ release.commit_prefix }}` **prefix** to commit msgs
-  - `git commit --amend`{% endif %}
-- **SAVE** resulting hash for later.
-  - `git show`
+{% if release != "main" %}- [ ] **Ammend** the commit message and record resulting hash:
+  - `git commit --amend && git show`
+  - Add `{{ release.commit_prefix }}` **prefix** to first line of commit msg
+  - Append `Backport of {HASH-FROM-MAIN} from main.` at the end
+{% else %}- [ ] **SAVE** resulting hash for later.
+  - `git show`{% endif %}

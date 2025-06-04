@@ -98,8 +98,6 @@ class BaseChecklistTestCaseMixin:
             f"- `RELEASE_VERSION={version} test_new_version.sh`",
             '- https://djangoci.com/job/confirm-release/ "Build with parameters" '
             f"passing `{version}` as version",
-            "- `git push`",
-            "- `git push --tags`",
             "- `twine upload --repository django dist/*`",
             '- [ ] Mark the release as "active" in '
             f"https://www.djangoproject.com/admin/releases/release/{version}/change/",
@@ -113,6 +111,13 @@ class BaseChecklistTestCaseMixin:
             "generator/_push_changes_and_announce.md", {"instance": checklist}
         )
         self.assertIn(expected, content)
+        data = [
+            "- `git push -v`",
+            "- `git push --tags`",
+        ]
+        for item in data:
+            with self.subTest(item=item):
+                self.assertIn(item, expected)
 
     @override_settings(
         TEMPLATES=[
