@@ -11,9 +11,6 @@
   - `RELEASE_VERSION={{ release }} test_new_version.sh`
 - [ ] CONFIRM RELEASE via jenkins job
   - https://djangoci.com/job/confirm-release/ "Build with parameters" passing `{{ release.version }}` as version
-- [ ] Push your work: version update(s), including the new tag
-  - `git push`
-  - `git push --tags`
 - [ ] Upload to PyPI with Twine (use commands printed by release script)
   - `twine upload --repository django dist/*`
   - https://pypi.org/project/Django/{{ release }}/

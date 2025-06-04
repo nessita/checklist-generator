@@ -14,7 +14,10 @@
 ```
 {% include instance.blogpost_template with final_version=release.feature_version %}
 ```
-{% if release.is_dot_zero %}
+{% if release.status == "a" %}
+## Feature Freeze
+# ToDo
+{% elif release.is_dot_zero %}
 - [ ] Create a new branch from the current stable branch in the [django-docs-translations repository](https://github.com/django/django-docs-translations):
   - `git checkout -b {{ release.stable_branch }} origin/{{ instance.eom_release.stable_branch }}`
   - `git push origin {{ release.stable_branch }}:{{ release.stable_branch }}`
@@ -22,9 +25,9 @@
 
 ## Release Day
 
-- [ ] Polish and if necessary make cosmetic edits to release notes on `main` and backport{% if release.is_dot_zero %}:
+- [ ] Polish and  make cosmetic edits to release notes on `main` and backport
+  - Remove the `Expected` prefix and update the release date if necessary{% if release.is_dot_zero %}:
   - Remove the `UNDER DEVELOPMENT` header at the top of the release notes
-  - Remove the `Expected` prefix and update the release date if necessary
   - e.g. https://github.com/django/django/commit/1994a2643881a9e3f9fa8d3e0794c1a9933a1831{% endif %}
 - [ ] Check [Jenkins](https://djangoci.com) is green for the version(s) you're putting out.
       You probably shouldn't issue a release until it's green.

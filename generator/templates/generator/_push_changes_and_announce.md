@@ -1,5 +1,7 @@
-- [ ] Push changes to `main` and any stable branch, including pre-releases:
-  - `git checkout main && git log && git push -v`
+- [ ] Push changes to relevant branches:
+{% if instance.status == "f" %}
+  - `git checkout main && git log`
+  - `git push -v`{% endif %}
 {% for release in instance.affected_releases %}
   - `git checkout {{ release.stable_branch }} && git log`
   - `git push -v`
