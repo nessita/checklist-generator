@@ -10,7 +10,7 @@ be made to Django, and the patches which will be applied to Django.
 {% for cve in cves %}
 {{ cve.headline_for_blogpost|rst_underline_for_headline:'=' }}
 
-{{ cve.description|wordwrap:80 }}
+{{ cve.blogdescription|safe }}
 {% endfor %}
 Affected supported versions
 ===========================

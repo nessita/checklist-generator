@@ -5,7 +5,6 @@ from datetime import UTC, date, datetime, timedelta
 from uuid import uuid4
 
 from django.contrib.auth.models import User
-from django.template.defaultfilters import wordwrap
 from django.template.loader import render_to_string
 from django.test import RequestFactory, TestCase, override_settings
 from django.utils.timezone import make_aware, now
@@ -306,7 +305,7 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
             "- [ ] Submit a CVE Request https://cveform.mitre.org for all issues",
             checklist_content,
         )
-        self.assertIn(wordwrap(blog, 80), checklist_content)
+        self.assertIn(blog, checklist_content)
 
     def test_render_checklist_download_links(self):
         releases = [
