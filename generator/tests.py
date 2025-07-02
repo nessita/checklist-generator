@@ -12,6 +12,7 @@ from django.utils.timezone import make_aware, now
 from .admin import render_checklist
 from .models import (
     SEVERITY_LEVELS_DOCS,
+    BugFixRelease,
     FeatureRelease,
     PreRelease,
     Release,
@@ -138,6 +139,18 @@ class BaseChecklistTestCaseMixin:
         self.assertNotInChecklistContent("INVALID", content)
 
         return content
+
+
+class BugFixReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
+    checklist_class = BugFixRelease
+
+    def test_render_checklist(self):
+        release = self.make_release(version="5.2.4")
+        checklist_instance = self.make_checklist(release=release)
+        checklist_content = self.do_render_checklist(checklist_instance)
+        self.assertPushAndAnnouncesAdded(checklist_instance, checklist_content)
+        self.assertStubReleaseNotesAdded(release, checklist_content)
+        self.assertMakeReleasePublicAdded(release, checklist_content)
 
 
 class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
