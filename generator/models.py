@@ -373,6 +373,7 @@ class ReleaseChecklist(models.Model):
 
     checklist_template = "generator/release-skeleton.md"
     release_status_code = {v: k for k, v in Release.STATUS_REVERSE.items()}
+    forum_post = None
 
     class Meta:
         abstract = True
@@ -494,9 +495,27 @@ class PreRelease(ReleaseChecklist):
 
 class BugFixRelease(ReleaseChecklist):
     release = models.OneToOneField(Release, null=True, on_delete=models.SET_NULL)
-    feature_release = models.ForeignKey(FeatureRelease, on_delete=models.CASCADE)
 
     slug = "bugfix-releases"
+
+    @cached_property
+    def blogpost_template(self):
+        return "generator/release_bugfix_blogpost.rst"
+
+    @cached_property
+    def blogpost_title(self):
+        return f"Django bugfix release issued: {self.version}"
+
+    @cached_property
+    def blogpost_summary(self):
+        return (
+            "Today the Django project issued a bugfix release for the "
+            f"{self.release.feature_version} release series."
+        )
+
+    @cached_property
+    def verbose_version(self):
+        return self.version
 
 
 class SecurityRelease(ReleaseChecklist):

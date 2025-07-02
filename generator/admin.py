@@ -3,6 +3,7 @@ from django.http import HttpResponse
 from django.template.loader import render_to_string
 
 from .models import (
+    BugFixRelease,
     FeatureRelease,
     PreRelease,
     Release,
@@ -55,6 +56,10 @@ class ReleaseChecklistAdminMixin:
         return render_checklist(request, queryset)
 
 
+class BugFixReleaseAdmin(ReleaseChecklistAdminMixin, admin.ModelAdmin):
+    pass
+
+
 class PreReleaseAdmin(ReleaseChecklistAdminMixin, admin.ModelAdmin):
     list_display = ["feature_release"] + ReleaseChecklistAdminMixin.list_display
     list_filter = ["feature_release"] + ReleaseChecklistAdminMixin.list_filter
@@ -91,6 +96,7 @@ class SecurityIssueReleasesThroughAdmin(admin.ModelAdmin):
 
 
 admin.site.register(FeatureRelease, FeatureReleaseAdmin)
+admin.site.register(BugFixRelease, BugFixReleaseAdmin)
 admin.site.register(PreRelease, PreReleaseAdmin)
 admin.site.register(Release, ReleaseAdmin)
 admin.site.register(Releaser, ReleaserAdmin)

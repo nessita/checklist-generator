@@ -4,7 +4,7 @@
 ## Before Release
 
 - [ ] Resolve release blockers
-- [ ] Update [forum post]({{ instance.forum_post }}) with any relevant news
+{% if instance.forum_post %}- [ ] Update [forum post]({{ instance.forum_post }}) with any relevant news{% endif %}
 - [ ] Draft blog post
   - Headline: `{{ instance.blogpost_title }}`
   - Slug: `{{ slug }}`
