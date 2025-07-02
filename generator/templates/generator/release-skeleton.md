@@ -48,6 +48,9 @@
 
 {% if release.status == "f" %}{% include "generator/_stub_release_notes.md" %}{% endif %}
 {% include "generator/_push_changes_and_announce.md" %}
+{% if release.status == "a" %}
+- [ ] Add the feature release in [Trac's versions list](https://code.djangoproject.com/admin/ticket/versions).
+{% endif %}
 {% if release.is_dot_zero %}
 - [ ] Update the metadata for the docs in https://www.djangoproject.com/admin/docs/documentrelease/:
   - Set `is_default` flag to `True` in the `DocumentRelease` English entry for this release (this will automatically flip all the others to `False`).
@@ -61,6 +64,8 @@
       [Django release process](https://code.djangoproject.com/#Djangoreleaseprocess) on Trac.
 - [ ] Update the download page on djangoproject.com.
   - e.g. https://github.com/django/django/commit/d2b1ec551567c208abfdd21b27ff6d08ae1a6371.
+- [ ] Update the `default_version` setting in the code.djangoproject.com's `trac.ini` file
+  - e.g. https://github.com/django/code.djangoproject.com/pull/268
 {% elif release.status != "f" %}
 - [ ] Update the translation catalogs:
   - Make a new branch from the recently released stable branch:
