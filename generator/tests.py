@@ -256,6 +256,15 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
             "- [ ] Submit a CVE Request https://cveform.mitre.org for all issues",
             checklist_content,
         )
+
+        with self.subTest(task="One Week before steps"):
+            self.assertIn("## One Week before", checklist_content)
+            self.assertIn(
+                "- [ ] Land the stub release notes and release date updates in main "
+                "and 5.2",
+                checklist_content,
+            )
+
         with self.subTest(task="Stub release notes added"):
             self.assertStubReleaseNotesAdded(
                 checklist.latest_release, checklist_content
