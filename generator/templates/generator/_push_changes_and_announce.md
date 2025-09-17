@@ -1,5 +1,5 @@
 - [ ] Push changes to relevant branches:
-{% if instance.status == "f" %}
+{% if not instance.is_pre_release %}
   - `git checkout main && git log`
   - `git push -v`{% endif %}
 {% for release in instance.affected_releases %}
@@ -23,6 +23,10 @@ Details are available on the Django project weblog:
 
 :mega: Announcement: {{ instance.blogpost_link }}
 
-:tada: Release notes:{% for version in instance.versions %}
- * https://docs.djangoproject.com/en/stable/releases/{{ version }}{% endfor %}
+:tada: Release notes:
+{% if instance.is_pre_release %}
+ * https://docs.djangoproject.com/en/dev/releases/{{ instance.feature_release.version }}
+{% else %}
+{% for version in instance.versions %}
+ * https://docs.djangoproject.com/en/stable/releases/{{ version }}{% endfor %}{% endif %}
 ```
