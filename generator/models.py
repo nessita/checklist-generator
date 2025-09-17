@@ -321,6 +321,14 @@ class Release(models.Model):  # This is the exact model from djangoproject.com
         return tuple(version)
 
     @cached_property
+    def version_verbose(self):
+        return (
+            f"{self.feature_version} {self.get_status_display()} 1"
+            if self.is_pre_release
+            else self.version
+        )
+
+    @cached_property
     def feature_version(self):
         return f"{self.major}.{self.minor}"
 
@@ -394,17 +402,21 @@ class ReleaseChecklist(models.Model):
 
     @cached_property
     def blogpost_template(self):
-        return f"generator/release_{self.status}_blogpost.rst"
+        return f"generator/release_{self.status_reversed}_blogpost.rst"
 
     @cached_property
     def blogpost_title(self):
-        return f"Django {self.verbose_version} released"
+        return f"Django {self.release.version_verbose} released"
 
     @cached_property
     def blogpost_summary(self):
         return f"Django {self.version} has been released!"
 
-    @property
+    @cached_property
+    def is_pre_release(self):
+        return False
+
+    @cached_property
     def is_security_release(self):
         return "security" in self.slug
 
@@ -413,7 +425,7 @@ class ReleaseChecklist(models.Model):
         return f"django-{self.version.replace('.', '')}-released"
 
     @cached_property
-    def status(self):
+    def status_reversed(self):
         if (release := getattr(self, "release", None)) is not None:
             return self.release_status_code[release.status]
         return "security"
@@ -421,9 +433,9 @@ class ReleaseChecklist(models.Model):
     @cached_property
     def trove_classifier(self):
         result = "Development Status :: 5 - Production/Stable"
-        if self.status == "alpha":
+        if self.status_reversed == "alpha":
             result = "Development Status :: 3 - Alpha"
-        elif self.status in ("beta", "rc"):
+        elif self.status_reversed in ("beta", "rc"):
             result = "Development Status :: 4 - Beta"
         return result
 
@@ -441,15 +453,6 @@ class ReleaseChecklist(models.Model):
     def versions(self):
         return [r.version for r in self.affected_releases]
 
-    @cached_property
-    def verbose_version(self):
-        status = (
-            f" {self.release.get_status_display()} 1"
-            if self.release.status != "f"
-            else ""
-        )
-        return f"{self.release.feature_version}{status}"
-
 
 class FeatureRelease(ReleaseChecklist):
     release = models.OneToOneField(Release, null=True, on_delete=models.SET_NULL)
@@ -457,8 +460,8 @@ class FeatureRelease(ReleaseChecklist):
     tagline = models.CharField(
         max_length=4096,
         help_text=(
-            "Filler to use in the sentence <i>Django [version] brings "
-            "[tagline] which you can read about in the release notes.</i></br>"
+            "Filler to use in the sentence <i>Django [version] [tagline] "
+            "which you can read about in the release notes.</i></br>"
             "For example: <i>Django 5.1 brings <strong>a kaleidoscope of "
             "improvements</strong></i>."
         ),
@@ -486,8 +489,9 @@ class PreRelease(ReleaseChecklist):
     @cached_property
     def blogpost_summary(self):
         return (
-            f"Today Django {self.verbose_version}, a preview/testing package for the "
-            f"upcoming Django {self.release.feature_version} release, is available."
+            f"Today Django {self.release.version_verbose}, a preview/testing package "
+            f"for the upcoming Django {self.release.feature_version} release, is "
+            "available."
         )
 
     @cached_property
@@ -495,9 +499,13 @@ class PreRelease(ReleaseChecklist):
         return self.feature_release.forum_post
 
     @cached_property
+    def is_pre_release(self):
+        return True
+
+    @cached_property
     def slug(self):
         slug_version = self.release.feature_version.replace(".", "")
-        return f"django-{slug_version}-{self.status}-released"
+        return f"django-{slug_version}-{self.status_reversed}-released"
 
 
 class BugFixRelease(ReleaseChecklist):

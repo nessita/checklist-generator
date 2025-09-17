@@ -11,6 +11,15 @@ def next_version(release):
 
 
 @register.filter
+def next_feature_version(release):
+    if release.minor < 2:
+        result = f"{release.major}.{release.minor + 1}"
+    else:
+        result = f"{release.major + 1}.0"
+    return result
+
+
+@register.filter
 def format_version_tuple(version_tuple):
     version_tuple = [str(v) for v in version_tuple]
     version_tuple[3] = f'"{version_tuple[3]}"'

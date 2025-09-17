@@ -1,5 +1,5 @@
 {% load generator_extras %}
-# Django {{ instance.verbose_version }} {{ title }} - {{ when|date }}
+# Django {{ release.version_verbose }} {{ title }} - {{ when|date }}
 
 ## Before Release
 
@@ -14,31 +14,26 @@
 ```
 {% include instance.blogpost_template with final_version=release.feature_version %}
 ```
-{% if release.status == "a" %}
-## Feature Freeze
-# ToDo
-{% elif release.is_dot_zero %}
+{% if release.is_dot_zero %}
 - [ ] Create a new branch from the current stable branch in the [django-docs-translations repository](https://github.com/django/django-docs-translations):
   - `git checkout -b {{ release.stable_branch }} origin/{{ instance.eom_release.stable_branch }}`
   - `git push origin {{ release.stable_branch }}:{{ release.stable_branch }}`
+{% elif release.status == "a" %}
+## Feature Freeze Day
+{% include 'generator/_feature_freeze.md' with final_version=release.feature_version %}
 {% endif %}
 
 ## Release Day
 
 - [ ] Polish and  make cosmetic edits to release notes on `main` and backport
-  - Remove the `Expected` prefix and update the release date if necessary{% if release.is_dot_zero %}:
-  - Remove the `UNDER DEVELOPMENT` header at the top of the release notes
+  {% if not release.is_pre_release %}- Remove the `Expected` prefix and update the release date if necessary{% endif %}
+  {% if release.is_dot_zero %}- Remove the `UNDER DEVELOPMENT` header at the top of the release notes:
   - e.g. https://github.com/django/django/commit/1994a2643881a9e3f9fa8d3e0794c1a9933a1831{% endif %}
 - [ ] Check [Jenkins](https://djangoci.com) is green for the version(s) you're putting out.
       You probably shouldn't issue a release until it's green.
 - [ ] A release always begins from a release branch, so you should make sure you're on the up-to-date **stable branch**
   - `git checkout {{ release.stable_branch }} && git pull -v`
-- [ ] Update manpage
-  - `cd docs`
-  - `make man`
-  - `man _build/man/django-admin.1`  # do a quick sanity check
-  - `cp _build/man/django-admin.1 man/django-admin.1`
-  - e.g. https://github.com/django/django/commit/34bc3a3f88a5f9829df91afae9ee9bae5dae310a
+{% if not release.is_pre_release %}{% include 'generator/_update_man_page.md' %}{% endif %}
 
 ### Build artifacts
 {% include 'generator/_build_release_binaries.md' %}
@@ -49,7 +44,7 @@
 
 ### Final tasks
 
-{% if release.status == "f" %}{% include "generator/_stub_release_notes.md" %}{% endif %}
+{% if not release.is_pre_release %}{% include "generator/_stub_release_notes.md" %}{% endif %}
 {% include "generator/_push_changes_and_announce.md" %}
 {% if release.status == "a" %}
 - [ ] Add the feature release in [Trac's versions list](https://code.djangoproject.com/admin/ticket/versions).
@@ -69,7 +64,7 @@
   - e.g. https://github.com/django/django/commit/d2b1ec551567c208abfdd21b27ff6d08ae1a6371.
 - [ ] Update the `default_version` setting in the code.djangoproject.com's `trac.ini` file
   - e.g. https://github.com/django/code.djangoproject.com/pull/268
-{% elif release.status != "f" %}
+{% elif release.is_pre_release %}
 - [ ] Update the translation catalogs:
   - Make a new branch from the recently released stable branch:
     - `git checkout {{ release.stable_branch }} && git pull -v`

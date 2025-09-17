@@ -536,31 +536,37 @@ class PreReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
         "rc": "release candidate",
     }
 
-    def make_checklist(self, **kwargs):
+    def make_feature_release_checklist(self, version, tagline="brings a collection"):
         future = now() + timedelta(days=75)
-        feature_release = FeatureRelease.objects.create(
-            when=future, tagline="collection"
+        release = self.make_release(version=version, date=future)
+        return FeatureRelease.objects.create(
+            when=future, tagline=tagline, release=release
         )
-        return super().make_checklist(feature_release=feature_release, **kwargs)
 
     def test_affected_releases(self):
+        feature_release = self.make_feature_release_checklist("6.0")
         for status, verbose in self.status_to_version.items():
             release = self.make_release(version=f"6.0{status}1")
             with self.subTest(release=release):
-                checklist = self.make_checklist(release=release)
+                checklist = self.make_checklist(
+                    feature_release=feature_release, release=release
+                )
                 self.assertEqual(checklist.affected_releases, [release])
 
     def test_blogpost_info(self):
+        feature_release = self.make_feature_release_checklist("6.0")
         for status, verbose in self.status_to_version.items():
             release = self.make_release(version=f"6.0{status}1")
             with self.subTest(release=release):
-                checklist = self.make_checklist(release=release)
+                checklist = self.make_checklist(
+                    feature_release=feature_release, release=release
+                )
                 self.assertEqual(
                     checklist.blogpost_title, f"Django 6.0 {verbose} 1 released"
                 )
                 self.assertEqual(
                     checklist.blogpost_template,
-                    f"generator/release_{checklist.status}_blogpost.rst",
+                    f"generator/release_{checklist.status_reversed}_blogpost.rst",
                 )
                 expected = (
                     f"Today Django 6.0 {verbose} 1, a preview/testing package for the "
@@ -569,21 +575,28 @@ class PreReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
                 self.assertEqual(checklist.blogpost_summary, expected)
 
     def test_versions(self):
+        feature_release = self.make_feature_release_checklist("6.0")
         for status, verbose in self.status_to_version.items():
             version = f"6.0{status}1"
             release = self.make_release(version=version)
             with self.subTest(release=release):
-                checklist = self.make_checklist(release=release)
+                checklist = self.make_checklist(
+                    feature_release=feature_release, release=release
+                )
                 self.assertEqual(checklist.version, version)
                 self.assertEqual(checklist.versions, [version])
 
     def test_render_checklist(self):
+        feature_release = self.make_feature_release_checklist("5.2")
         for status, version in self.status_to_version.items():
             release = self.make_release(
                 version=f"5.2{status}1", date=date(2025, 4, 2), is_lts=True
             )
             with self.subTest(version=version):
-                instance = self.make_checklist(release=release)
+                instance = self.make_checklist(
+                    feature_release=feature_release, release=release
+                )
+                assert instance.release is release
                 checklist_content = self.do_render_checklist(instance)
                 self.assertIn(
                     "- [ ] Update the translation catalogs:", checklist_content
@@ -638,7 +651,7 @@ class FeatureReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
             "- [ ] Change version in `django/__init__.py` and maybe trove classifier:\n"
             '  - `VERSION = (5, 2, 0, "final", 0)`\n'
             '  - Ensure the "Development Status" trove classifier in `pyproject.toml` '
-            "is: `Development Status :: 5 - Production/Stable``\n"
+            "is: `Development Status :: 5 - Production/Stable`\n"
             "  - `git commit -a -m '[5.2.x] Bumped version for 5.2 release.'`\n"
         )
         post_release_bump = (
