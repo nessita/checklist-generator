@@ -1,4 +1,4 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 
@@ -14,9 +14,7 @@ from .models import (
 )
 
 
-def render_checklist(request, queryset):
-    assert len(queryset) == 1, "A single item should be selected"
-    [instance] = queryset
+def render_checklist(request, instance):
     context = {
         "instance": instance,
         "releaser": instance.releaser,
@@ -53,7 +51,25 @@ class ReleaseChecklistAdminMixin:
 
     @admin.action(description="Render checklists for selected releases")
     def render_checklist(self, request, queryset):
-        return render_checklist(request, queryset)
+        errors = []
+        try:
+            instance = queryset.get()
+        except (Release.DoesNotExist, Release.MultipleObjectsReturned):
+            errors.append("A single item should be selected")
+            instance = None
+
+        if (
+            isinstance(instance, SecurityRelease)
+            and not instance.securityissue_set.filter(releases__isnull=False).exists()
+        ):
+            errors.append("Please provide at least one SecurityIssueReleasesThrough.")
+
+        if errors:
+            for error in errors:
+                self.message_user(request, error, messages.ERROR)
+            return
+
+        return render_checklist(request, instance)
 
 
 class BugFixReleaseAdmin(ReleaseChecklistAdminMixin, admin.ModelAdmin):
