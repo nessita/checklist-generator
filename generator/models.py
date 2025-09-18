@@ -5,6 +5,7 @@ from functools import total_ordering
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils.crypto import get_random_string
 from django.utils.functional import cached_property
 
 from .templatetags.generator_extras import enumerate_items
@@ -107,6 +108,10 @@ SEVERITY_LEVELS_DOCS = (
     "https://docs.djangoproject.com/en/dev/internals/security/"
     "#security-issue-severity-levels"
 )
+
+
+def get_cve_default():
+    return f"CVE-{datetime.date.today().year}-{get_random_string(5)}"
 
 
 class ReleaseManager(models.Manager):
@@ -358,11 +363,13 @@ class Release(models.Model):  # This is the exact model from djangoproject.com
 class Releaser(models.Model):
     # Eventually a djangoproject.com User.
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    key_id = models.CharField(max_length=100)
+    key_id = models.CharField(
+        max_length=100, help_text="gpg --list-keys --keyid-format LONG"
+    )
     key_url = models.URLField()
 
     def __str__(self):
-        return f"{self.key_id} <{self.key_url}>"
+        return f"{self.user.get_full_name()}: {self.key_id} <{self.key_url}>"
 
 
 class ReleaseChecklist(models.Model):
@@ -595,7 +602,9 @@ class SecurityRelease(ReleaseChecklist):
 
 
 class SecurityIssueReleasesThrough(models.Model):
-    securityissue = models.ForeignKey("SecurityIssue", on_delete=models.CASCADE)
+    securityissue = models.ForeignKey(
+        "SecurityIssue", on_delete=models.CASCADE, verbose_name="Security Issue"
+    )
     release = models.ForeignKey(Release, on_delete=models.CASCADE)
     commit_hash = models.CharField(
         max_length=128, default="", blank=True, db_index=True
@@ -616,7 +625,9 @@ class SecurityIssueReleasesThrough(models.Model):
 
 
 class SecurityIssue(models.Model):
-    cve_year_number = models.CharField(max_length=1024, unique=True)
+    cve_year_number = models.CharField(
+        max_length=1024, unique=True, default=get_cve_default
+    )
     cve_type = models.CharField(
         max_length=1024, choices=[(i, i) for i in CVE_TYPE], default=CVE_TYPE_OTHER
     )
@@ -636,7 +647,7 @@ class SecurityIssue(models.Model):
     )
     summary = models.CharField(max_length=1024)
     description = models.TextField(help_text=DESCRIPTION_HELP_TEXT)
-    blogdescription = models.TextField(blank=True)
+    blogdescription = models.TextField(blank=True, verbose_name="Blog description")
 
     reporter = models.CharField(max_length=1024, blank=True)
     release = models.ForeignKey(
@@ -755,7 +766,7 @@ class SecurityIssue(models.Model):
     def cve_minified_json(self):
         return json.dumps(self.cve_data, sort_keys=True, separators=(",", ":"))
 
-    def clean_fields(self, *args, **kwargs):
+    def clean(self, *args, **kwargs):
         if self.cve_type == CVE_TYPE_OTHER and not self.other_type:
             raise ValidationError(
                 '"Other type" needs to be set when "Vulnerability type" is '

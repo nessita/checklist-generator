@@ -4,7 +4,6 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("generator", "0028_remove_prerelease_verbose_version"),
     ]
