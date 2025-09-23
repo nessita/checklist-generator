@@ -4,4 +4,4 @@ Today we've issued the `{{ version }}
 The release package and checksums are available from `our downloads page
 </download/>`_, as well as from the Python Package Index.
 
-{% include "generator/_relaser_info.rst" %}
+{% include "generator/_releaser_info.rst" %}

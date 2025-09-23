@@ -17,4 +17,4 @@ to `the issue tracker <https://code.djangoproject.com/newticket>`_), you can
 grab a copy of the release candidate package from
 `our downloads page <https://www.djangoproject.com/download/>`_ or on PyPI.
 
-{% include "generator/_relaser_info.rst" %}
+{% include "generator/_releaser_info.rst" %}

@@ -8,7 +8,7 @@ showcase {{ tagline }}. A few highlights are:
 You can get Django {{ version }} from `our downloads page
 <https://www.djangoproject.com/download/>`_ or from `the Python Package Index
 <https://pypi.python.org/pypi/Django/{{ version }}>`_.
-{% include "generator/_relaser_info.rst" %}
+{% include "generator/_releaser_info.rst" %}
 {% if instance.eom_release %}
 With the release of Django {{ version }}, Django {{ instance.eom_release.feature_version}}
 has reached the end of mainstream support. The final minor bug fix release, `{{ instance.eom_release.version }}

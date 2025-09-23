@@ -40,7 +40,7 @@ The following releases have been issued
   `{{ version }} checksums
   <https://www.djangoproject.com/download/{{ version }}/checksum/>`_){% endfor %}
 
-{% include "generator/_relaser_info.rst" %}
+{% include "generator/_releaser_info.rst" %}
 
 General notes regarding security reporting
 ==========================================
