@@ -55,10 +55,11 @@
 
 ## One Week before
 
-- [ ] Sent prenotification email
+- [ ] Send prenotification email
   - `Notice of upcoming Django security releases ({{ versions|enumerate_items }})`
   - Create a new text file `prenotification-email.txt` with content similar to this:
     - Reference: https://github.com/django/django-security/wiki/Security-prenotification-email-template
+    - Remove backticks from code symbols
 ```
 {% include "generator/release-security-prenotification.md" %}
 ```
