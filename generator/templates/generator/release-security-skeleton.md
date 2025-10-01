@@ -113,7 +113,9 @@
 ```
 {% include 'generator/release_security_archive.rst' %}
 ```
+  - In an environment with django branch and docs dependencies installed:
   - `make html`
+  - `make check`
   - `git commit -a -m 'Added {{ cves|enumerate_cves }} to security archive.'`
   - Check links from local docs
       - `firefox _build/html/releases/security.html`
