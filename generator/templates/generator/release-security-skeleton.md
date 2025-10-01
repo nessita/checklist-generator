@@ -79,16 +79,6 @@
     For details of severity levels, see:
     https://docs.djangoproject.com/en/dev/internals/security/#security-issue-severity-levels
     ```
-- [ ] Write blogpost draft
-  - Include REPORTER and severity!
-  - e.g. https://www.djangoproject.com/admin/blog/entry/706/change/
-  - Title: `{{ instance.blogpost_title }}`
-  - Slug: `security-releases`
-  - Summary: `{{ instance.blogpost_summary }}`
-  - Body:
-```
-{% include 'generator/release_security_blogpost.rst' %}
-```
 - [ ] Land the stub release notes and release date updates in {{ instance.affected_branches|enumerate_items }}
 
 ## Release Day
@@ -134,6 +124,7 @@
 
 ### Final tasks -- PUSH EVERYTHING TO BRANCHES
 
+{% include 'generator/_write_blogpost.md' %}
 {% include "generator/_push_changes_and_announce.md" %}
 - [ ] Send email to the OSS Security mailing list notifying about the release
   - To: `oss-security@lists.openwall.com`

@@ -541,6 +541,10 @@ class SecurityRelease(ReleaseChecklist):
         return f"Security release on {self.when}"
 
     @cached_property
+    def blogpost_template(self):
+        return "generator/release_security_blogpost.rst"
+
+    @cached_property
     def blogpost_title(self):
         return f"Django security releases issued: {self.version}"
 
