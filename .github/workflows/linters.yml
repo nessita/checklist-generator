@@ -25,3 +25,9 @@ jobs:
 
       - name: Run isort
         run: isort --check --diff .
+
+      - name: Install project dependencies
+        run: pip install --upgrade pip -r requirements.txt
+
+      - name: Check for missing migrations
+        run: python manage.py makemigrations --check
