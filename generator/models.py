@@ -79,6 +79,9 @@ IMPACT_TYPE = [
     "Other",
 ]
 DESCRIPTION_HELP_TEXT = """Written in present tense.
+
+Use SINGLE `backticks` for code-like words.
+
 ==> Do not include versions, these will be prepended automatically. <==
 
 CVE documented format suggestions:
@@ -96,10 +99,10 @@ Examples:
     The password hasher in contrib/auth/hashers.py allows remote attackers to
     enumerate users via a timing attack involving login requests.
 
-    The intcomma template filter is subject to a potential denial-of-service
+    The `intcomma` template filter is subject to a potential denial-of-service
     attack when used with very long strings.
 
-    The django.contrib.auth.forms.UsernameField is subject to a potential
+    The `django.contrib.auth.forms.UsernameField` is subject to a potential
     denial-of-service attack via certain inputs with a very large number of
     Unicode characters (because the NFKC normalization is slow on Windows).
 </pre>
@@ -657,9 +660,11 @@ class SecurityIssue(models.Model):
         choices=[(i, i.capitalize()) for i in ("low", "moderate", "high")],
         default="moderate",
     )
-    summary = models.CharField(max_length=1024)
+    summary = models.CharField(max_length=1024, help_text="Single backticks here.")
     description = models.TextField(help_text=DESCRIPTION_HELP_TEXT)
-    blogdescription = models.TextField(blank=True, verbose_name="Blog description")
+    blogdescription = models.TextField(
+        blank=True, verbose_name="Blog description", help_text="Double backticks here."
+    )
 
     reporter = models.CharField(max_length=1024, blank=True)
     release = models.ForeignKey(
