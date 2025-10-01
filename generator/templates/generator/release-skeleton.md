@@ -5,15 +5,7 @@
 
 - [ ] Resolve release blockers
 {% if instance.forum_post %}- [ ] Update [forum post]({{ instance.forum_post }}) with any relevant news{% endif %}
-- [ ] Draft blog post
-  - Headline: `{{ instance.blogpost_title }}`
-  - Slug: `{{ slug }}`
-  - Format: reStructuredText
-  - Summary: `{{ instance.blogpost_summary }}`
-  - Body:
-```
-{% include instance.blogpost_template with final_version=release.feature_version %}
-```
+{% include 'generator/_write_blogpost.md' with final_version=release.feature_version %}
 {% if release.is_dot_zero %}
 - [ ] Create a new branch from the current stable branch in the [django-docs-translations repository](https://github.com/django/django-docs-translations):
   - `git checkout -b {{ release.stable_branch }} origin/{{ instance.eom_release.stable_branch }}`
