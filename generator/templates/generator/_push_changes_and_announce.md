@@ -8,6 +8,12 @@
 {% endfor %}
 - [ ] Push all the new tags at once
   - `git push --tags`
+{% if instance.is_security_release %}
+- [ ] Update blogpost description with body, hashes, and checksums
+```
+{% include 'generator/release_security_blogpost.rst' %}
+```
+{% endif %}
 - [ ] Publish blogpost
 - [ ] Email to `django-announce@googlegroups.com`
   - Title: `{{ instance.blogpost_title }}`

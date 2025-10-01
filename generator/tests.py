@@ -106,9 +106,17 @@ class BaseChecklistTestCaseMixin:
             with self.subTest(item=item):
                 self.assertIn(item, expected)
 
-    def assertPushAndAnnouncesAdded(self, checklist, content):
+    def assertPushAndAnnouncesAdded(self, instance, content):
         expected = render_to_string(
-            "generator/_push_changes_and_announce.md", {"instance": checklist}
+            "generator/_push_changes_and_announce.md",
+            context={
+                "instance": instance,
+                "releaser": instance.releaser,
+                "slug": instance.slug,
+                "version": instance.version,
+                "title": instance.__class__.__name__,
+                **instance.__dict__,
+            },
         )
         self.assertIn(expected, content)
         data = [

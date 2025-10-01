@@ -85,10 +85,7 @@
   - Title: `{{ instance.blogpost_title }}`
   - Slug: `security-releases`
   - Summary: `{{ instance.blogpost_summary }}`
-  - Body:
-```
-{% include 'generator/release_security_blogpost.rst' %}
-```
+  - Body (leave blank for now)
 - [ ] Land the stub release notes and release date updates in {{ instance.affected_branches|enumerate_items }}
 
 ## Release Day
