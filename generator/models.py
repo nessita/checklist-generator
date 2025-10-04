@@ -78,7 +78,7 @@ IMPACT_TYPE = [
     "Information Disclosure",
     "Other",
 ]
-DESCRIPTION_HELP_TEXT = """Written in present tense.
+DESCRIPTION_HELP_TEXT = """Written in present tense without backticks.
 ==> Do not include versions, these will be prepended automatically. <==
 
 CVE documented format suggestions:
@@ -653,9 +653,11 @@ class SecurityIssue(models.Model):
         choices=[(i, i.capitalize()) for i in ("low", "moderate", "high")],
         default="moderate",
     )
-    summary = models.CharField(max_length=1024)
+    summary = models.CharField(max_length=1024, help_text="Single backticks here.")
     description = models.TextField(help_text=DESCRIPTION_HELP_TEXT)
-    blogdescription = models.TextField(blank=True, verbose_name="Blog description")
+    blogdescription = models.TextField(
+        blank=True, verbose_name="Blog description", help_text="Double backticks here."
+    )
 
     reporter = models.CharField(max_length=1024, blank=True)
     release = models.ForeignKey(

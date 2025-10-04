@@ -85,10 +85,7 @@
   - Title: `{{ instance.blogpost_title }}`
   - Slug: `security-releases`
   - Summary: `{{ instance.blogpost_summary }}`
-  - Body:
-```
-{% include 'generator/release_security_blogpost.rst' %}
-```
+  - Body (leave blank for now)
 - [ ] Land the stub release notes and release date updates in {{ instance.affected_branches|enumerate_items }}
 
 ## Release Day
@@ -123,6 +120,8 @@
 ```
 {% include 'generator/release_security_archive.rst' %}
 ```
+  - In an environment with docs dependencies installed: 
+  - `make check`
   - `make html`
   - `git commit -a -m 'Added {{ cves|enumerate_cves }} to security archive.'`
   - Check links from local docs
