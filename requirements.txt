@@ -4,17 +4,17 @@
 #
 #    pip-compile requirements.in
 #
-asgiref==3.8.1
+asgiref==3.10.0
     # via django
-black==25.1.0
+black==25.9.0
     # via -r requirements.in
-click==8.2.1
+click==8.3.0
     # via black
-django==5.2.3
+django==5.2.7
     # via -r requirements.in
 flake8==7.3.0
     # via -r requirements.in
-isort==6.0.1
+isort==7.0.0
     # via -r requirements.in
 mccabe==0.7.0
     # via flake8
@@ -24,13 +24,15 @@ packaging==25.0
     # via black
 pathspec==0.12.1
     # via black
-platformdirs==4.3.8
+platformdirs==4.5.0
     # via black
-psycopg==3.2.9
+psycopg==3.2.10
     # via -r requirements.in
 pycodestyle==2.14.0
     # via flake8
 pyflakes==3.4.0
     # via flake8
+pytokens==0.1.10
+    # via black
 sqlparse==0.5.3
     # via django
