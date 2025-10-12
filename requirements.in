@@ -3,3 +3,5 @@ psycopg
 black
 flake8
 isort
+markdown
+pymdown-extensions

@@ -5,6 +5,8 @@ from functools import total_ordering
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.shortcuts import reverse
+from django.template.loader import render_to_string
 from django.utils.crypto import get_random_string
 from django.utils.functional import cached_property
 
@@ -396,6 +398,9 @@ class ReleaseChecklist(models.Model):
     class Meta:
         abstract = True
 
+    def __str__(self):
+        return self.release.version_verbose
+
     @cached_property
     def blogpost_link(self, slug=None):
         if slug is None:
@@ -455,6 +460,24 @@ class ReleaseChecklist(models.Model):
     @cached_property
     def versions(self):
         return [r.version for r in self.affected_releases]
+
+    def get_absolute_url(self):
+        return reverse("generator:release_checklist", kwargs={"version": self.version})
+
+    def render_to_string(self, request=None):
+        context = {
+            "instance": self,
+            "releaser": self.releaser,
+            "slug": self.slug,
+            "version": self.version,
+            "title": self.__class__.__name__,
+            **self.__dict__,
+        }
+        if (release := getattr(self, "release", None)) is not None:
+            context["release"] = release
+        if (data := getattr(self, "get_context_data", None)) is not None:
+            context.update(data)
+        return render_to_string(self.checklist_template, context, request=request)
 
 
 class FeatureRelease(ReleaseChecklist):
@@ -614,6 +637,9 @@ class SecurityRelease(ReleaseChecklist):
             }
             for issue in self.securityissue_set.all()
         ]
+
+    def get_absolute_url(self):
+        return reverse("generator:securityrelease_checklist", kwargs={"pk": self.pk})
 
 
 class SecurityIssueReleasesThrough(models.Model):
