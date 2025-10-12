@@ -9,7 +9,6 @@ from django.template.loader import render_to_string
 from django.test import RequestFactory, TestCase, override_settings
 from django.utils.timezone import make_aware, now
 
-from .admin import render_checklist
 from .models import (
     SEVERITY_LEVELS_DOCS,
     BugFixRelease,
@@ -97,9 +96,9 @@ class BaseChecklistTestCaseMixin:
             f"- Release date: {release.date.isoformat()}",
             f"- `RELEASE_VERSION={version} test_new_version.sh`",
             '- https://djangoci.com/job/confirm-release/ "Build with parameters" '
-            f"passing `{version}` as version",
+            f"passing\n    version: `{version}`",
             "- `twine upload --repository django dist/*`",
-            '- [ ] Mark the release as "active" in '
+            '- [ ] Mark the release as "active" in\n  '
             f"https://www.djangoproject.com/admin/releases/release/{version}/change/",
         ]
         for item in data:
@@ -145,10 +144,7 @@ class BaseChecklistTestCaseMixin:
             checklist_instance = self.make_checklist()
 
         request = self.request_factory.get("/")
-        response = render_checklist(request, checklist_instance)
-        self.assertEqual(response["Content-Type"], "text/markdown; charset=utf-8")
-
-        content = response.content.decode("utf-8")
+        content = checklist_instance.render_to_string(request)
         self.assertNotInChecklistContent("INVALID", content)
 
         return content
@@ -657,15 +653,15 @@ class FeatureReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
         checklist_content = self.do_render_checklist(checklist)
         version_trove_classifier_updates = (
             "- [ ] Change version in `django/__init__.py` and maybe trove classifier:\n"
-            '  - `VERSION = (5, 2, 0, "final", 0)`\n'
-            '  - Ensure the "Development Status" trove classifier in `pyproject.toml` '
-            "is: `Development Status :: 5 - Production/Stable`\n"
-            "  - `git commit -a -m '[5.2.x] Bumped version for 5.2 release.'`\n"
+            '    - `VERSION = (5, 2, 0, "final", 0)`\n'
+            '    - Ensure the "Development Status" trove classifier in '
+            "`pyproject.toml` is: `Development Status :: 5 - Production/Stable`\n"
+            "    - `git commit -a -m '[5.2.x] Bumped version for 5.2 release.'`\n"
         )
         post_release_bump = (
             "- [ ] BUMP **MINOR VERSION** in `django/__init__.py`\n"
-            '  - `VERSION = (5, 2, 1, "alpha", 0)`\n'
-            "  - `git commit -a -m '[5.2.x] Post-release version bump.'`"
+            '    - `VERSION = (5, 2, 1, "alpha", 0)`\n'
+            "    - `git commit -a -m '[5.2.x] Post-release version bump.'`"
         )
         feature_release_tasks = [
             "- Remove the `UNDER DEVELOPMENT` header at the top of the release notes",

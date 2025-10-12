@@ -8,7 +8,9 @@
   - Add labels for affected versions
   - Add label for severity
   - e.g. https://github.com/django/django-security/issues/362
+
 - [ ] Prepare fixes targeting `main`, get reviews, include release notes
+
 - [ ] Submit a CVE Request https://cveform.mitre.org for all issues
   - Select a request type: `Report Vulnerability/Request CVE ID`
   - Enter your e-mail address: `security@djangoproject.com`
@@ -67,6 +69,7 @@
   - Send an email with body using the signed content to a given list of special users:
     - Attach patches.
     - USE BCC!: https://github.com/django/django-security/wiki/Security-Release-Prenotification-Email-List
+
 - [ ] Post announcement in mailing list (without details in django-announce):
     ```
     Django versions {{ versions|enumerate_items }} will be released on
@@ -79,12 +82,15 @@
     For details of severity levels, see:
     https://docs.djangoproject.com/en/dev/internals/security/#security-issue-severity-levels
     ```
+
 - [ ] Land the stub release notes and release date updates in {{ instance.affected_branches|enumerate_items }}
 
 ## Release Day
 
 - [ ] Update security report and update patches for `main` and stable branches
+
 - [ ] Empty push to private GH so actions are (re)run
+
 - [ ] Regenerate patches against latest revno in each branch
   - `git format-patch HEAD~{{ cves_length }}`
 
@@ -107,32 +113,33 @@
 ### Phase 2: update release notes and the security archive
 {% include "generator/_stub_release_notes.md" with release=instance.latest_release %}
 - [ ]  In the `main` branch, add security patches entry to archive and backport
-  - `git checkout main`
-  - Edit `docs/releases/security.txt`
+    - `git checkout main`
+    - Edit `docs/releases/security.txt`
       - Need hashes!
 ```
 {% include 'generator/release_security_archive.rst' %}
 ```
-  - In an environment with django branch and docs dependencies installed:
-  - `make html`
-  - `make check`
-  - `git commit -a -m 'Added {{ cves|enumerate_cves }} to security archive.'`
-  - Check links from local docs
-      - `firefox _build/html/releases/security.html`
-  - Backport security archive update to all branches!
-    {% for release in instance.affected_releases %}
-    - `git checkout {{ release.stable_branch }} && backport.sh {HASH}`
-    {% endfor %}
+    - In an environment with django branch and docs dependencies installed:
+        - `make html`
+        - `make check`
+        - `git commit -a -m 'Added {{ cves|enumerate_cves }} to security archive.'`
+
+    - Check links from local docs
+        - `firefox _build/html/releases/security.html`
+    - Backport security archive update to all branches!
+        {% for release in instance.affected_releases %}
+        - `git checkout {{ release.stable_branch }} && backport.sh {HASH}`
+        {% endfor %}
 
 ### Final tasks -- PUSH EVERYTHING TO BRANCHES
 
 {% include 'generator/_write_blogpost.md' %}
 {% include "generator/_push_changes_and_announce.md" %}
 - [ ] Send email to the OSS Security mailing list notifying about the release
-  - To: `oss-security@lists.openwall.com`
-  - Cc: `security@djangoproject.com`
-  - Subject: `Django {{ cves|enumerate_cves }}`
-  - Body with blogpost link and content, and CVE data (PASTE blogpost content!!!):
+    - To: `oss-security@lists.openwall.com`
+    - Cc: `security@djangoproject.com`
+    - Subject: `Django {{ cves|enumerate_cves }}`
+    - Body with blogpost link and content, and CVE data (PASTE blogpost content!!!):
 ```
 * Announce link: {{ instance.blogpost_link }}
 
@@ -142,8 +149,10 @@
 {{ cve.cve_json|safe }}
 {% endfor %}
 ```
+
 - [ ] Notify `mitre.org` about the CVE publication
   {% for cve in cves %}{% include "generator/_cve_publication.md" %}{% endfor %}
+
 - [ ] Close PRs in security repo linking hashes
   {% regroup instance.hashes_by_versions|dictsortreversed:"branch" by branch as items %}
   {% for item in items %}
@@ -152,8 +161,9 @@
 * Fix for {{ i.cve }} merged in https://github.com/django/django/commit/{{ i.hash }}.{% endfor %}
 ```
   {% endfor %}
+
 - [ ] Close issues in security repo linking hashes
-  - e.g. https://github.com/django/django-security/issues/376
+    - e.g. https://github.com/django/django-security/issues/376
   {% regroup instance.hashes_by_versions|dictsort:"cve" by cve as items %}
   {% for item in items %}
 #### For {{ item.grouper }}
@@ -162,4 +172,5 @@ Fixed:{% for i in item.list|dictsortreversed:'branch' %}
 * On the [{{ i.branch }} branch](https://github.com/django/django/commit/{{ i.hash }}){% endfor %}
 ```
   {% endfor %}
+
 - [ ] Remove branches{% endwith %}

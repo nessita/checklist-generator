@@ -1,6 +1,6 @@
 from django.contrib import admin, messages
 from django.http import HttpResponse
-from django.template.loader import render_to_string
+from django.utils.html import format_html
 
 from .models import (
     BugFixRelease,
@@ -14,23 +14,6 @@ from .models import (
 )
 
 
-def render_checklist(request, instance):
-    context = {
-        "instance": instance,
-        "releaser": instance.releaser,
-        "slug": instance.slug,
-        "version": instance.version,
-        "title": instance.__class__.__name__,
-        **instance.__dict__,
-    }
-    if (release := getattr(instance, "release", None)) is not None:
-        context["release"] = release
-    if (data := getattr(instance, "get_context_data", None)) is not None:
-        context.update(data)
-    checklist = render_to_string(instance.checklist_template, context, request=request)
-    return HttpResponse(checklist, content_type="text/markdown; charset=utf-8")
-
-
 class ReleaseAdmin(admin.ModelAdmin):
     list_display = ["version", "date", "is_lts"]
     ordering = ["-version"]
@@ -41,7 +24,7 @@ class ReleaserAdmin(admin.ModelAdmin):
 
 
 class ReleaseChecklistAdminMixin:
-    list_display = ["version", "when", "releaser"]
+    list_display = ["version", "when", "releaser", "checklist_link"]
     list_filter = ["releaser"]
     actions = ["render_checklist"]
     readonly_fields = ["blogpost_link"]
@@ -69,7 +52,14 @@ class ReleaseChecklistAdminMixin:
                 self.message_user(request, error, messages.ERROR)
             return
 
-        return render_checklist(request, instance)
+        checklist = instance.render_to_string(request=request)
+        return HttpResponse(checklist, content_type="text/markdown; charset=utf-8")
+
+    def checklist_link(self, obj):
+        url = obj.get_absolute_url()
+        return format_html('<a href="{}" target="_blank">View checklist</a>', url)
+
+    checklist_link.short_description = "Checklist"
 
 
 class BugFixReleaseAdmin(ReleaseChecklistAdminMixin, admin.ModelAdmin):
@@ -86,7 +76,7 @@ class FeatureReleaseAdmin(ReleaseChecklistAdminMixin, admin.ModelAdmin):
 
 
 class SecurityReleaseAdmin(ReleaseChecklistAdminMixin, admin.ModelAdmin):
-    list_display = ["versions", "when", "releaser"]
+    list_display = ["versions", "cves", "when", "releaser", "checklist_link"]
     search_fields = ["affected_branches"]
     ordering = ["-when"]
     readonly_fields = ["hashes_by_versions"]
