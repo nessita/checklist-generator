@@ -5,70 +5,76 @@
 ## 14 days before
 
 - [ ] Create issues in https://github.com/django/django-security/issues/
-  - Add labels for affected versions
-  - Add label for severity
-  - e.g. https://github.com/django/django-security/issues/362
+    - Add labels for affected versions
+    - Add label for severity
+    - e.g. https://github.com/django/django-security/issues/362
 
 - [ ] Prepare fixes targeting `main`, get reviews, include release notes
 
-- [ ] Submit a CVE Request https://cveform.mitre.org for all issues
-  - Select a request type: `Report Vulnerability/Request CVE ID`
-  - Enter your e-mail address: `security@djangoproject.com`
-  - Enter a PGP Key (to encrypt): _blank_
-  - Number of vulnerabilities reported or IDs requested (1-10) info: `{{ cves_length }}`
-  - I have verified that this vulnerability is not in a CNA-covered product: `Yes`
-  - I have verified that the vulnerability has not already been assigned a CVE ID: `Yes`
-  {% for cve in cves %}{% with releases=cve.releases.all %}
-  - For issue **{{ cve.summary }}**:
-    - Vulnerability type info: `{{ cve.cve_type }}`
-    {% if cve.other_type %}
-    - Other vulnerability type info: `{{ cve.other_type }}`
-    {% endif %}
-    - Vendor of the product(s) info: `djangoproject`
-    - Affected product(s)/code base (SPLIT in product and version (X before Y) in rows!):
-      ```{% for release in releases %}{% if not release.is_pre_release %}
-      [row 1] Django
-      [row 2] {{ release|format_release_for_cve }}
-      {% if not forloop.last %}---------- Click [+] Add ----------{% endif %}{% endif %}
-      {% endfor %}```
-    - Has vendor confirmed or acknowledged the vulnerability? `Yes`
-    - Attack type info: `{{ cve.attack_type }}`
-    - Impact info: `{{ cve.impact }}`
-    - Affected component(s): _blank_
-    - Attack vector(s): _blank_
-    - Suggested description of the vulnerability for use in the CVE info:
-      ```
-      An issue was discovered in {{ releases|format_releases_for_cves }}.
-      {{ cve.description }}
-      ```
-    - Discoverer(s)/Credits info: `{{ cve.reporter }}`
-    - Reference(s) info:
-      ```
-      https://groups.google.com/g/django-announce
-      https://docs.djangoproject.com/en/dev/releases/security/
-      ```
-  {% endwith %}{% endfor %}
+- [ ] Submit CVE IDs Request for all issues
+{% if "MITRE" in instance.cnas %}
+    - Go to https://cveform.mitre.org
+    - Select a request type: `Report Vulnerability/Request CVE ID`
+    - Enter your e-mail address: `security@djangoproject.com`
+    - Enter a PGP Key (to encrypt): _blank_
+    - Number of vulnerabilities reported or IDs requested (1-10) info: `{{ cves_length }}`
+    - I have verified that this vulnerability is not in a CNA-covered product: `Yes`
+    - I have verified that the vulnerability has not already been assigned a CVE ID: `Yes`
+    {% for cve in cves %}{% with releases=cve.releases.all %}
+    - For issue **{{ cve.summary }}**:
+        - Vulnerability type info (Other): `{{ cve.cve_type }}`
+        {% if cve.other_type %}
+        - Other vulnerability type info: `{{ cve.other_type }}`
+        {% endif %}
+        - Vendor of the product(s) info: `djangoproject`
+        - Affected product(s)/code base (SPLIT in product and version (X before Y) in rows!):
+          ```{% for release in releases %}{% if not release.is_pre_release %}
+          [row 1] Django
+          [row 2] {{ release|format_release_for_cve }}
+          {% if not forloop.last %}---------- Click [+] Add ----------{% endif %}{% endif %}
+          {% endfor %}```
+        - Has vendor confirmed or acknowledged the vulnerability? `Yes`
+        - Attack type info: `{{ cve.attack_type }}`
+        - Impact info (Other): `{{ cve.impact }}`
+        - Affected component(s): _blank_
+        - Attack vector(s): _blank_
+        - Suggested description of the vulnerability for use in the CVE info:
+          ```
+          {{ cve.cve_description }}
+          ```
+        - Discoverer(s)/Credits info: `{{ cve.reporter }}`
+        - Reference(s) info:
+          ```
+          https://groups.google.com/g/django-announce
+          https://docs.djangoproject.com/en/dev/releases/security/
+          ```
+    {% endwith %}{% endfor %}
+{% else %}
+    - Send an email to `cna@djangoproject.com`
+        - With CNA credentials, reserve CVE IDs with: `cve --interactive reserve`
+{% endif %}
 
 ## 10 days before
 
 - [ ] Prepare patches targeting {{ instance.affected_branches|enumerate_items }}
-  - `git format-patch HEAD~{{ cves_length }}`
-  - e.g. https://github.com/django/django-security/pull/375
+    - `git format-patch HEAD~{{ cves_length }}`
+    - e.g. https://github.com/django/django-security/pull/375
 
 ## One Week before
 
 - [ ] Send prenotification email
-  - `Notice of upcoming Django security releases ({{ versions|enumerate_items }})`
-  - Create a new text file `prenotification-email.txt` with content similar to this:
-    - Reference: https://github.com/django/django-security/wiki/Security-prenotification-email-template
-    - Remove backticks from code symbols
+    - Subject: `Notice of upcoming Django security releases ({{ versions|enumerate_items }})`
+    - Create a new text file `prenotification-email.txt` with content similar to this:
+        - Reference: https://github.com/django/django-security/wiki/Security-prenotification-email-template
+        - Remove backticks from code symbols
 ```
 {% include "generator/release-security-prenotification.md" %}
 ```
-  - GPG sign that new file: `gpg --clearsign --digest-algo SHA256 prenotification-email.txt`
-  - Send an email with body using the signed content to a given list of special users:
-    - Attach patches.
-    - USE BCC!: https://github.com/django/django-security/wiki/Security-Release-Prenotification-Email-List
+    - GPG sign that new file:
+        - `gpg --clearsign --digest-algo SHA256 prenotification-email.txt`
+    - Send an email with body using the signed content to a given list of special users:
+        - Attach patches.
+        - USE BCC!: https://github.com/django/django-security/wiki/Security-Release-Prenotification-Email-List
 
 - [ ] Post announcement in mailing list (without details in django-announce):
     ```
@@ -92,7 +98,7 @@
 - [ ] Empty push to private GH so actions are (re)run
 
 - [ ] Regenerate patches against latest revno in each branch
-  - `git format-patch HEAD~{{ cves_length }}`
+    - `git format-patch HEAD~{{ cves_length }}`
 
 ### Phase 0: apply patches and build binaries -- DO NOT PUSH NOR PUBLISH ANYTHING YET
 
@@ -135,6 +141,18 @@
 
 {% include 'generator/_write_blogpost.md' %}
 {% include "generator/_push_changes_and_announce.md" %}
+{% if "MITRE" in instance.cnas %}
+- [ ] Notify `mitre.org` about the CVE publication
+{% for cve in cves %}
+{% include "generator/_cve_publication.md" %}
+{% endfor %}
+{% else %}
+- [ ] Request publication of the CVE ID(s) via email to `cna@djangoproject.com` for all issues.
+
+    - If you have CNA credentials, publish each CVE with:
+        {% for cve in cves %}
+        - `cve publish {{ cve }} --cve-json '{{ cve.cve_minified_json|safe }}'{% endfor %}
+{% endif %}
 - [ ] Send email to the OSS Security mailing list notifying about the release
     - To: `oss-security@lists.openwall.com`
     - Cc: `security@djangoproject.com`
@@ -144,14 +162,12 @@
 * Announce link: {{ instance.blogpost_link }}
 
 * Announce content: <blogpost content>
+
+* CVE JSON Records:
 {% for cve in cves %}
-* Machine-readable CVE data for {{ cve }}:
 {{ cve.cve_json|safe }}
 {% endfor %}
 ```
-
-- [ ] Notify `mitre.org` about the CVE publication
-  {% for cve in cves %}{% include "generator/_cve_publication.md" %}{% endfor %}
 
 - [ ] Close PRs in security repo linking hashes
   {% regroup instance.hashes_by_versions|dictsortreversed:"branch" by branch as items %}
