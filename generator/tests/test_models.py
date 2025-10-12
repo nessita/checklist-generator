@@ -207,10 +207,7 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
     def test_render_checklist_simple(self):
         checklist = self.make_checklist()
         checklist_content = self.do_render_checklist(checklist)
-        self.assertIn(
-            "- [ ] Submit a CVE Request https://cveform.mitre.org for all issues",
-            checklist_content,
-        )
+        self.assertIn("- [ ] Submit CVE IDs Request for all issues", checklist_content)
 
         with self.subTest(task="One Week before steps"):
             self.assertIn("## One Week before", checklist_content)
@@ -287,10 +284,7 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
 
         checklist_content = self.do_render_checklist(checklist)
 
-        self.assertIn(
-            "- [ ] Submit a CVE Request https://cveform.mitre.org for all issues",
-            checklist_content,
-        )
+        self.assertIn("- [ ] Submit CVE IDs Request for all issues", checklist_content)
         self.assertIn(blog, checklist_content)
 
     def test_render_checklist_download_links(self):
@@ -396,18 +390,20 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
 
         affected_versions = [
             {
-                "collectionURL": "https://github.com/django/django/",
-                "defaultStatus": "affected",
+                "collectionURL": "https://pypi.org/project/Django/",
+                "defaultStatus": "unaffected",
+                "product": "Django",
+                "repo": "https://github.com/django/django/",
+                "vendor": "djangoproject",
                 "packageName": "django",
                 "versions": [
                     {
                         "lessThan": "5.1.8",
                         "status": "affected",
-                        "version": "5.1.0",
+                        "version": "5.1",
                         "versionType": "semver",
                     },
                     {
-                        "lessThan": "5.1.*",
                         "status": "unaffected",
                         "version": "5.1.8",
                         "versionType": "semver",
@@ -415,11 +411,10 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
                     {
                         "lessThan": "5.0.14",
                         "status": "affected",
-                        "version": "5.0.0",
+                        "version": "5.0",
                         "versionType": "semver",
                     },
                     {
-                        "lessThan": "5.0.*",
                         "status": "unaffected",
                         "version": "5.0.14",
                         "versionType": "semver",
@@ -431,16 +426,58 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
             {
                 "lang": "en",
                 "type": "reporter",
-                "value": (
-                    f"Django would like to thank {reporter} for reporting this issue."
-                ),
-            }
+                "value": reporter,
+            },
+            {
+                "lang": "en",
+                "type": "coordinator",
+                "value": checklist.releaser.user.get_full_name(),
+            },
         ]
+        references = [
+            {
+                "name": "Django security archive",
+                "tags": ["vendor-advisory"],
+                "url": "https://docs.djangoproject.com/en/dev/releases/security/",
+            },
+            {
+                "name": "Django releases announcements",
+                "tags": ["mailing-list"],
+                "url": "https://groups.google.com/g/django-announce",
+            },
+            {
+                "name": "Django security releases issued: 5.1.8 and 5.0.14",
+                "tags": ["vendor-advisory"],
+                "url": checklist.blogpost_link,
+            },
+        ]
+        expected_description = (
+            "An issue was discovered in 5.0 before 5.0.14 and 5.1 before 5.1.8.\n"
+            f"{cve_description}\n"
+            "Earlier, unsupported Django series (such as 5.0.x, 4.1.x, and 3.2.x) "
+            "were not evaluated and may also be affected.\n"
+            f"Django would like to thank {reporter} for reporting this issue."
+        )
         expected = [
             ("affected", affected_versions),
             ("credits", credits),
-            ("datePublic", "12/04/2024"),
-            ("descriptions", [{"lang": "en", "value": cve_description}]),
+            ("datePublic", checklist.when.isoformat()),
+            (
+                "descriptions",
+                [
+                    {
+                        "lang": "en",
+                        "value": expected_description,
+                        "supportingMedia": [
+                            {
+                                "type": "text/html",
+                                "base64": False,
+                                "value": expected_description.replace("\n", "<br>"),
+                            },
+                        ],
+                    },
+                ],
+            ),
             (
                 "metrics",
                 [
@@ -455,24 +492,15 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
                     }
                 ],
             ),
-            (
-                "references",
-                [
-                    {
-                        "name": "Django security releases issued: 5.1.8 and 5.0.14",
-                        "tags": ["vendor-advisory"],
-                        "url": checklist.blogpost_link,
-                    }
-                ],
-            ),
+            ("references", references),
             (
                 "timeline",
                 [
                     {
                         "lang": "en",
                         "time": checklist.when.isoformat(),
-                        "value": "Made public.",
-                    }
+                        "value": "Security release issued.",
+                    },
                 ],
             ),
             ("title", cve_summary),

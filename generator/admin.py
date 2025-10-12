@@ -102,7 +102,10 @@ class SecurityIssueAdmin(admin.ModelAdmin):
     list_filter = ["severity", "release"]
     search_fields = ["cve_year_number", "summary", "description", "commit_hash_main"]
     ordering = ["-cve_year_number"]
-    readonly_fields = ["hashes_by_branch", "releases"]
+    readonly_fields = [
+        "cvss_base_severity",
+        "cvss_vector",
+    ]
     inlines = [SecurityIssueReleasesThroughInline]
     formfield_overrides = {
         models.CharField: {"widget": forms.TextInput(attrs={"size": "100"})},
