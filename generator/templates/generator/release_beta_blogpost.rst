@@ -10,7 +10,7 @@ Only bugs in new features and regressions from earlier Django versions will be
 fixed between now and the {{ final_version }} final release. Translations will
 be updated following the "string freeze", which occurs when the release
 candidate is issued. The `current release schedule
-<https://code.djangoproject.com/wiki/Version{{ final_version }}Roadmap>`_ calls
+<https://www.djangoproject.com/download/{{ final_version }}/roadmap/>`_ calls
 for a release candidate in about a month, with the final release scheduled
 roughly two weeks later on {{ instance.feature_release.when|date:"F j" }}.
 

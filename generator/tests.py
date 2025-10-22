@@ -90,7 +90,8 @@ class BaseChecklistTestCaseMixin:
         self.assertIn(expected, content)
         version = release.version
         data = [
-            f"- Version: {version}",
+            "- [ ] Edit the the [release entry in the admin]"
+            f"(https://www.djangoproject.com/admin/releases/release/{version}/)",
             "- Is active: False",
             f"- LTS: {release.is_lts}",
             f"- Release date: {release.date.isoformat()}",

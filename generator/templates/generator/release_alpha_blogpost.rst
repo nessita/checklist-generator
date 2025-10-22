@@ -7,7 +7,7 @@ can read about in `the in-development {{ final_version }} release notes
 <https://docs.djangoproject.com/en/dev/releases/{{ final_version }}/>`_.
 
 This alpha milestone marks the feature freeze. The `current release schedule
-<https://code.djangoproject.com/wiki/Version{{ final_version}}Roadmap>`_ calls
+<https://www.djangoproject.com/download/{{ final_version }}/roadmap/>`_ calls
 for a beta release in about a month and a release candidate roughly a month
 after that. We'll only be able to keep this schedule with early and frequent
 testing from the community. Updates on the release schedule are available `on
