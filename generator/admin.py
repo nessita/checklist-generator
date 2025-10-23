@@ -1,4 +1,6 @@
+from django import forms
 from django.contrib import admin, messages
+from django.db import models
 from django.http import HttpResponse
 from django.utils.html import format_html
 
@@ -17,6 +19,7 @@ from .models import (
 class ReleaseAdmin(admin.ModelAdmin):
     list_display = ["version", "date", "is_lts"]
     ordering = ["-version"]
+    search_fields = ["version"]
 
 
 class ReleaserAdmin(admin.ModelAdmin):
@@ -82,17 +85,39 @@ class SecurityReleaseAdmin(ReleaseChecklistAdminMixin, admin.ModelAdmin):
     readonly_fields = ["hashes_by_versions"]
 
 
+class SecurityIssueReleasesThroughInline(admin.TabularInline):
+    model = SecurityIssueReleasesThrough
+    extra = 0
+    autocomplete_fields = ["release"]
+
+
 class SecurityIssueAdmin(admin.ModelAdmin):
-    list_display = ["cve_year_number", "summary", "severity", "commit_hash_main"]
+    list_display = [
+        "cve_year_number",
+        "summary",
+        "severity",
+        "commit_hash_main",
+        "cve_json_record_link",
+    ]
     list_filter = ["severity", "release"]
     search_fields = ["cve_year_number", "summary", "description", "commit_hash_main"]
     ordering = ["-cve_year_number"]
     readonly_fields = ["hashes_by_branch", "releases"]
+    inlines = [SecurityIssueReleasesThroughInline]
+    formfield_overrides = {
+        models.CharField: {"widget": forms.TextInput(attrs={"size": "100"})},
+    }
+
+    def cve_json_record_link(self, obj):
+        url = obj.get_absolute_url()
+        return format_html('<a href="{}" target="_blank">CVE Record</a>', url)
+
+    cve_json_record_link.short_description = "CVE Record"
 
 
 class SecurityIssueReleasesThroughAdmin(admin.ModelAdmin):
     list_display = ["securityissue__cve_year_number", "release__version", "commit_hash"]
-    list_filter = ["release__version"]
+    list_filter = ["securityissue__cve_year_number", "release__version"]
     search_fields = [
         "securityissue__cve_year_number",
         "release__version",

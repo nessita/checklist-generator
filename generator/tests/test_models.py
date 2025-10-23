@@ -1,28 +1,24 @@
 import json
-import random
 import re
-from datetime import UTC, date, datetime, timedelta
-from uuid import uuid4
+from datetime import UTC, date, datetime
 
-from django.contrib.auth.models import User
 from django.template.loader import render_to_string
 from django.test import RequestFactory, TestCase, override_settings
-from django.utils.timezone import make_aware, now
+from django.utils.timezone import make_aware
 
-from .models import (
+from generator.models import (
     SEVERITY_LEVELS_DOCS,
     BugFixRelease,
     FeatureRelease,
     PreRelease,
-    Release,
-    Releaser,
-    SecurityIssue,
     SecurityRelease,
 )
+from generator.tests.factory import Factory
 
 
 class BaseChecklistTestCaseMixin:
     checklist_class = None
+    factory = Factory()
     request_factory = RequestFactory()
 
     def debug_checklist(self, content):
@@ -31,29 +27,9 @@ class BaseChecklistTestCaseMixin:
             f.write(content)
         return fname
 
-    def make_release(self, **kwargs):
-        version = kwargs.setdefault("version", "5.2")
-        kwargs.setdefault("date", date(2025, 4, 2))
-        kwargs.setdefault("is_lts", version.split(".", 1)[1].startswith("2"))
-        return Release.objects.create(**kwargs)
-
-    def make_releaser(self):
-        user = User.objects.create(
-            username=f"releaser-{uuid4()}", first_name="Merry", last_name="Pippin"
-        )
-        return Releaser.objects.create(
-            user=user,
-            key_id="1234567890ABCDEF",
-            key_url="https://github.com/releaser.gpg",
-        )
-
     def make_checklist(self, releaser=None, when=None, **kwargs):
-        if releaser is None:
-            releaser = self.make_releaser()
-        if when is None:
-            when = now() + timedelta(days=10)
-        return self.checklist_class.objects.create(
-            releaser=releaser, when=when, **kwargs
+        return self.factory.make_checklist(
+            self.checklist_class, releaser=releaser, when=when, **kwargs
         )
 
     def assertInChecklistContent(self, text, content, flat=False):
@@ -155,7 +131,7 @@ class BugFixReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
     checklist_class = BugFixRelease
 
     def test_render_checklist(self):
-        release = self.make_release(version="5.2.4")
+        release = self.factory.make_release(version="5.2.4")
         checklist_instance = self.make_checklist(release=release)
         checklist_content = self.do_render_checklist(checklist_instance)
         self.assertPushAndAnnouncesAdded(checklist_instance, checklist_content)
@@ -166,51 +142,25 @@ class BugFixReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
 class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
     checklist_class = SecurityRelease
 
-    def make_security_issue(
-        self,
-        security_release_checklist,
-        releases=None,
-        *,
-        cve_year_number=None,
-        **kwargs,
-    ):
-        if cve_year_number is None:  # make a random one to avoid collision
-            current_year = now().year
-            random_5digit = random.randint(10000, 100000)
-            cve_year_number = f"CVE-{current_year}-{random_5digit}"
-
-        issue = SecurityIssue.objects.create(
-            release=security_release_checklist,
-            cve_year_number=cve_year_number,
-            **kwargs,
+    def make_checklist(self, releaser=None, when=None, **kwargs):
+        return self.factory.make_security_checklist(
+            releaser=releaser, when=when, **kwargs
         )
-        if releases is None:
-            releases = [self.make_release()]
-        issue.releases.add(*releases)
-        return issue
-
-    def make_checklist(self, with_issues=True, releases=None, **kwargs):
-        checklist = super().make_checklist(**kwargs)
-        if releases is None:
-            releases = [self.make_release()]
-        if releases != []:
-            self.make_security_issue(checklist, releases=releases)
-        return checklist
 
     def test_affected_releases(self):
-        release51 = self.make_release(version="5.1.8")
-        release52 = self.make_release(version="5.2")
-        prerelease = self.make_release(version="6.0a1")
+        release51 = self.factory.make_release(version="5.1.8")
+        release52 = self.factory.make_release(version="5.2")
+        prerelease = self.factory.make_release(version="6.0a1")
         checklist = self.make_checklist(releases=[release51, release52, prerelease])
         self.assertEqual(
             checklist.affected_releases, [prerelease, release52, release51]
         )
 
     def test_blogpost_info(self):
-        release42 = self.make_release(version="4.2.13")
-        release51 = self.make_release(version="5.1.7")
-        release52 = self.make_release(version="5.2")
-        prerelease = self.make_release(version="6.0a1")
+        release42 = self.factory.make_release(version="4.2.13")
+        release51 = self.factory.make_release(version="5.1.7")
+        release52 = self.factory.make_release(version="5.2")
+        prerelease = self.factory.make_release(version="6.0a1")
         # Test proper use of Oxford comma.
         for releases, expected, verb in [
             ([release52], "5.2", "fixes"),
@@ -234,11 +184,11 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
                 )
 
     def test_blogpost_info_two_issues(self):
-        release51 = self.make_release(version="5.1.9")
-        release52 = self.make_release(version="5.2")
-        prerelease = self.make_release(version="6.0a1")
+        release51 = self.factory.make_release(version="5.1.9")
+        release52 = self.factory.make_release(version="5.2")
+        prerelease = self.factory.make_release(version="6.0a1")
         checklist = self.make_checklist(releases=[release51, release52, prerelease])
-        self.make_security_issue(checklist, releases=[release52])
+        self.factory.make_security_issue(checklist, releases=[release52])
         self.assertEqual(
             checklist.blogpost_template, "generator/release_security_blogpost.rst"
         )
@@ -247,9 +197,9 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
         )
 
     def test_versions(self):
-        release51 = self.make_release(version="5.1.9")
-        release52 = self.make_release(version="5.2")
-        prerelease = self.make_release(version="6.0a1")
+        release51 = self.factory.make_release(version="5.1.9")
+        release52 = self.factory.make_release(version="5.2")
+        prerelease = self.factory.make_release(version="6.0a1")
         checklist = self.make_checklist(releases=[release51, release52, prerelease])
         self.assertEqual(checklist.version, "5.2 and 5.1.9")
         self.assertEqual(checklist.versions, ["5.2", "5.1.9"])
@@ -285,14 +235,18 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
 
     def test_render_checklist_affects_prerelease(self):
         releases = [
-            self.make_release(version="5.0.14", date=date(2025, 4, 2)),
-            self.make_release(version="5.1.8", date=date(2025, 4, 2)),
-            self.make_release(version="5.2rc1", date=date(2025, 3, 19)),
+            self.factory.make_release(version="5.0.14", date=date(2025, 4, 2)),
+            self.factory.make_release(version="5.1.8", date=date(2025, 4, 2)),
+            self.factory.make_release(version="5.2rc1", date=date(2025, 3, 19)),
         ]
         when = datetime(2025, 5, 7, 11, 18, 23, tzinfo=UTC)
         checklist = self.make_checklist(releases=[], when=when)
-        self.make_security_issue(checklist, releases, cve_year_number="CVE-2025-11111")
-        self.make_security_issue(checklist, releases, cve_year_number="CVE-2025-22222")
+        self.factory.make_security_issue(
+            checklist, releases, cve_year_number="CVE-2025-11111"
+        )
+        self.factory.make_security_issue(
+            checklist, releases, cve_year_number="CVE-2025-22222"
+        )
 
         checklist_content = self.do_render_checklist(checklist)
 
@@ -329,7 +283,7 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
             '"News" section. The full list of news can be found `in this link '
             "<https://www.djangoproject.com/weblog/>`_."
         )
-        self.make_security_issue(checklist, blogdescription=blog)
+        self.factory.make_security_issue(checklist, blogdescription=blog)
 
         checklist_content = self.do_render_checklist(checklist)
 
@@ -341,9 +295,9 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
 
     def test_render_checklist_download_links(self):
         releases = [
-            self.make_release(version="4.2.21"),
-            self.make_release(version="5.1.9"),
-            self.make_release(version="5.2rc1"),
+            self.factory.make_release(version="4.2.21"),
+            self.factory.make_release(version="5.1.9"),
+            self.factory.make_release(version="5.2rc1"),
         ]
         checklist = self.make_checklist(releases=releases)
         checklist_content = self.do_render_checklist(checklist)
@@ -369,19 +323,19 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
 
     def test_render_checklist_rst_backticks(self):
         releases = [
-            self.make_release(version="5.1.9"),
-            self.make_release(version="5.2.1"),
+            self.factory.make_release(version="5.1.9"),
+            self.factory.make_release(version="5.2.1"),
         ]
         checklist = self.make_checklist(
             releases=[], when=datetime(2025, 5, 7, tzinfo=UTC)
         )
-        self.make_security_issue(
+        self.factory.make_security_issue(
             checklist,
             releases,
             cve_year_number="CVE-2025-11111",
             summary="Denial-of-service possibility in `strip_tags()`",
         )
-        self.make_security_issue(
+        self.factory.make_security_issue(
             checklist,
             releases,
             cve_year_number="CVE-2025-22222",
@@ -413,9 +367,9 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
 
     def test_render_cve_json(self):
         releases = [
-            self.make_release(version="5.0.14", date=date(2025, 4, 2)),
-            self.make_release(version="5.1.8", date=date(2025, 4, 2)),
-            self.make_release(version="5.2rc1", date=date(2025, 3, 19)),
+            self.factory.make_release(version="5.0.14", date=date(2025, 4, 2)),
+            self.factory.make_release(version="5.1.8", date=date(2025, 4, 2)),
+            self.factory.make_release(version="5.2rc1", date=date(2025, 3, 19)),
         ]
         when = datetime(2024, 12, 4, 10)
         checklist = self.make_checklist(
@@ -430,7 +384,7 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
             "sequences of nested incomplete HTML entities."
         )
         reporter = "jiangniao"
-        issue = self.make_security_issue(
+        issue = self.factory.make_security_issue(
             checklist,
             releases,
             cve_year_number=cve_number,
@@ -541,17 +495,10 @@ class PreReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
         "rc": "release candidate",
     }
 
-    def make_feature_release_checklist(self, version, tagline="brings a collection"):
-        future = now() + timedelta(days=75)
-        release = self.make_release(version=version, date=future)
-        return FeatureRelease.objects.create(
-            when=future, tagline=tagline, release=release
-        )
-
     def test_affected_releases(self):
-        feature_release = self.make_feature_release_checklist("6.0")
+        feature_release = self.factory.make_feature_release_checklist("6.0")
         for status, verbose in self.status_to_version.items():
-            release = self.make_release(version=f"6.0{status}1")
+            release = self.factory.make_release(version=f"6.0{status}1")
             with self.subTest(release=release):
                 checklist = self.make_checklist(
                     feature_release=feature_release, release=release
@@ -559,9 +506,9 @@ class PreReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
                 self.assertEqual(checklist.affected_releases, [release])
 
     def test_blogpost_info(self):
-        feature_release = self.make_feature_release_checklist("6.0")
+        feature_release = self.factory.make_feature_release_checklist("6.0")
         for status, verbose in self.status_to_version.items():
-            release = self.make_release(version=f"6.0{status}1")
+            release = self.factory.make_release(version=f"6.0{status}1")
             with self.subTest(release=release):
                 checklist = self.make_checklist(
                     feature_release=feature_release, release=release
@@ -580,10 +527,10 @@ class PreReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
                 self.assertEqual(checklist.blogpost_summary, expected)
 
     def test_versions(self):
-        feature_release = self.make_feature_release_checklist("6.0")
+        feature_release = self.factory.make_feature_release_checklist("6.0")
         for status, verbose in self.status_to_version.items():
             version = f"6.0{status}1"
-            release = self.make_release(version=version)
+            release = self.factory.make_release(version=version)
             with self.subTest(release=release):
                 checklist = self.make_checklist(
                     feature_release=feature_release, release=release
@@ -592,9 +539,9 @@ class PreReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
                 self.assertEqual(checklist.versions, [version])
 
     def test_render_checklist(self):
-        feature_release = self.make_feature_release_checklist("5.2")
+        feature_release = self.factory.make_feature_release_checklist("5.2")
         for status, version in self.status_to_version.items():
-            release = self.make_release(
+            release = self.factory.make_release(
                 version=f"5.2{status}1", date=date(2025, 4, 2), is_lts=True
             )
             with self.subTest(version=version):
@@ -625,12 +572,12 @@ class FeatureReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
     checklist_class = FeatureRelease
 
     def test_affected_releases(self):
-        release = self.make_release(version="6.0")
+        release = self.factory.make_release(version="6.0")
         checklist = self.make_checklist(release=release)
         self.assertEqual(checklist.affected_releases, [release])
 
     def test_blogpost_info(self):
-        release = self.make_release(version="6.0")
+        release = self.factory.make_release(version="6.0")
         checklist = self.make_checklist(release=release)
         self.assertEqual(checklist.blogpost_title, "Django 6.0 released")
         self.assertEqual(
@@ -639,15 +586,15 @@ class FeatureReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
         self.assertEqual(checklist.blogpost_summary, "Django 6.0 has been released!")
 
     def test_versions(self):
-        release = self.make_release(version="6.0")
+        release = self.factory.make_release(version="6.0")
         checklist = self.make_checklist(release=release)
         self.assertEqual(checklist.version, "6.0")
         self.assertEqual(checklist.versions, ["6.0"])
 
     def test_render_checklist(self):
-        eol_release = self.make_release(version="5.0", date=date(2023, 12, 4))
-        eom_release = self.make_release(version="5.1", date=date(2024, 9, 2))
-        release = self.make_release(version="5.2", date=date(2025, 4, 2))
+        eol_release = self.factory.make_release(version="5.0", date=date(2023, 12, 4))
+        eom_release = self.factory.make_release(version="5.1", date=date(2024, 9, 2))
+        release = self.factory.make_release(version="5.2", date=date(2025, 4, 2))
         checklist = self.make_checklist(
             release=release, eom_release=eom_release, eol_release=eol_release
         )
