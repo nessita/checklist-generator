@@ -22,15 +22,21 @@
     - `git fetch --all --prune`
     - `git checkout -b {{ release.stable_branch }} upstream/main`
     - `git push upstream -u {{ instance.release.stable_branch }}:{{ instance.release.stable_branch }}`
-
+{% with next_version=instance.feature_release.release|next_feature_version prereleases="1234"|make_list %}
 - [ ] Update `django_next_version` in `docs/conf.py` on the new stable branch:
-    - `django_next_version = '{{ instance.feature_release.release|next_feature_version }}'`
+    - `django_next_version = '{{ next_version }}'`
     - `git commit -a -m '{{ release.commit_prefix }} Bumped django_next_version in docs config.'`
 
-- [ ] Create a `Release` object in the admin for the final release:
-    - Navigate to: https://www.djangoproject.com/admin/releases/release/add/
-    - Fill in version number, mark LTS if applicable, set date.
-
+- [ ] Create inactive `Release` objects for {{ next_version }} in
+      https://www.djangoproject.com/admin/releases/release/add/:
+    {% for i in prereleases %}
+    - Version: {{ next_version }}{% cycle 'a1' 'b1' 'rc1' '' %}
+        - Is active: False
+        - Mark LTS if applicable
+        - Set scheduled release date
+    {% endfor %}
+    - Check the generated roadmap at https://www.djangoproject.com/download/{{ next_version }}/roadmap/.
+{% endwith %}
 - [ ] Create a `DocumentRelease` object in the admin for English for the new release:
     - Navigate to: https://www.djangoproject.com/admin/docs/documentrelease/add/
     - Steps:
@@ -48,9 +54,6 @@
 - [ ] Request the new classifier on PyPI by making a PR:
     - `Framework :: Django :: {{ final_version }}`
     - e.g. https://github.com/pypa/trove-classifiers/pulls?q=is%3Apr+django+trove+classifier
-
-- [ ] Create a roadmap page for the next release on Trac:
-    - e.g. https://code.djangoproject.com/wiki/Version6.0Roadmap
 
 - [ ] Edit the [Django release process on Trac](https://code.djangoproject.com/#Djangoreleaseprocess):
     - Update the current branch under active development

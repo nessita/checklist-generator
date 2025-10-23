@@ -4,82 +4,84 @@ from functools import total_ordering
 
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.shortcuts import reverse
 from django.template.loader import render_to_string
 from django.utils.crypto import get_random_string
 from django.utils.functional import cached_property
 
-from .templatetags.generator_extras import enumerate_items
+from .templatetags.generator_extras import enumerate_items, format_releases_for_cves
 from .utils import get_loose_version_tuple
 
-CVE_TYPE_OTHER = "Other or Unknown"
-CVE_TYPE = [
-    "Buffer Overflow",
-    "Cross Site Request Forgery (CSRF)",
-    "Cross Site Scripting (XSS)",
-    "Directory Traversal",
-    "Incorrect Access Control",
-    "Insecure Permissions",
-    "Integer Overflow",
-    "Missing SSL Certificate Validation",
-    "SQL Injection",
-    "XML External Entity (XXE)",
-    CVE_TYPE_OTHER,
+# CVSS metrics choices.
+
+CVSS_ATTACK_VECTOR_CHOICES = [  # AV
+    ("N", "Network"),
+    ("A", "Adjacent"),
+    ("L", "Local"),
+    ("P", "Physical"),
 ]
-CVE_OTHER_TYPE = [
-    "Algorithm complexity",
-    "Array index error",
-    "Auth bypass using cookie",
-    "Buffer Overflow",
-    "Cross-Site Request Forgery (CSRF)",
-    "Cross-Site Scripting (XSS)",
-    "Directory Traversal",
-    "Double free",
-    "Eval injection",
-    "File Upload",
-    "Format String",
-    "HTTP Response Splitting",
-    "HTTP Request Splitting",
-    "Incomplete blacklist",
-    "Integer Overflow",
-    "Integer Signedness",
-    "Memory Leak",
-    "Shell Metacharacter Injection",
-    "Open Redirect",
-    "Redirect without Exit",
-    "Path Disclosure",
-    "Insecure Permissions",
-    "PHP remote file inclusion",
-    "Session Fixation",
-    "SQL Injection",
-    "Symbolic Link Following",
-    "Untrusted Search Path",
-    "Unquoted Windows search path",
-    "Use after free",
-    "Default user/password",
-    "Large or infinite loop",
-    "Exposed insecure/unsafe method in ActiveX control",
-    "Generation of insufficiently random numbers",
-    "XML Extneral Entity (XXE)",
-    "Incorrect Access Control",
-    "Missing SSL certificate validation",
+CVSS_ATTACK_COMPLEXITY_CHOICES = [  # AC
+    ("L", "Low"),
+    ("H", "High"),
+]
+CVSS_ATTACK_REQUIREMENTS_CHOICES = [  # AT
+    ("N", "None"),
+    ("P", "Present"),
+]
+CVSS_PRIVILEGES_REQUIRED_CHOICES = [  # PR
+    ("N", "None"),
+    ("L", "Low"),
+    ("H", "High"),
+]
+CVSS_USER_INTERACTION_CHOICES = [  # UI
+    ("N", "None"),
+    ("P", "Passive"),
+    ("A", "Active"),
 ]
 
-ATTACK_TYPE = [
-    "Context-dependent",
-    "Local",
-    "Physical",
-    "Remote",
-    "Other",
+CVSS_IMPACT_CHOICES = [
+    ("N", "None"),
+    ("L", "Low"),
+    ("H", "High"),
 ]
-IMPACT_TYPE = [
-    "Code Execution",
-    "Denial of Service",
-    "Escalation of Privileges",
-    "Information Disclosure",
-    "Other",
+
+CVSS_SAFETY_CHOICES = [  # S
+    ("X", "Not Defined"),
+    ("N", "Negligible"),
+    ("P", "Present"),
 ]
+CVSS_AUTOMATABLE_CHOICES = [  # AU
+    ("X", "Not Defined"),
+    ("N", "No"),
+    ("Y", "Yes"),
+]
+CVSS_RECOVERY_CHOICES = [  # R
+    ("X", "Not Defined"),
+    ("A", "Automatic"),
+    ("U", "User"),
+    ("I", "Irrecoverable"),
+]
+CVSS_VALUE_DENSITY_CHOICES = [  # V
+    ("X", "Not Defined"),
+    ("D", "Diffuse"),
+    ("C", "Concentrated"),
+]
+CVSS_VULNERABILITY_RESPONSE_EFFORT_CHOICES = [  # RE
+    ("X", "Not Defined"),
+    ("L", "Low"),
+    ("M", "Moderate"),
+    ("H", "High"),
+]
+CVSS_PROVIDER_URGENCY_CHOICES = [  # U
+    ("X", "Not Defined"),
+    ("CLEAR", "Clear"),
+    ("GREEN", "Green"),
+    ("AMBER", "Amber"),
+    ("RED", "Red"),
+]
+
 DESCRIPTION_HELP_TEXT = """Written in present tense.
 
 Use SINGLE `backticks` for code-like words.
@@ -589,6 +591,14 @@ class SecurityRelease(ReleaseChecklist):
         return [cve for cve in self.securityissue_set.all().order_by("cve_year_number")]
 
     @cached_property
+    def cnas(self):
+        return (
+            self.securityissue_set.all()
+            .order_by("cve_year_number")
+            .values_list("cna", flat=True)
+        )
+
+    @cached_property
     def affected_branches(self):
         return ["main"] + [
             (
@@ -666,20 +676,14 @@ class SecurityIssueReleasesThrough(models.Model):
 
 
 class SecurityIssue(models.Model):
+    cna = models.CharField(
+        "CNA issuing the CVE ID for this issue.",
+        max_length=128,
+        default="MITRE",
+        choices=[(i, i) for i in ("DSF", "MITRE")],
+    )
     cve_year_number = models.CharField(
-        max_length=1024, unique=True, default=get_cve_default
-    )
-    cve_type = models.CharField(
-        max_length=1024, choices=[(i, i) for i in CVE_TYPE], default=CVE_TYPE_OTHER
-    )
-    other_type = models.CharField(max_length=1024, default="DoS", blank=True)
-    attack_type = models.CharField(
-        max_length=1024, choices=[(i, i) for i in ATTACK_TYPE], default="Remote"
-    )
-    impact = models.CharField(
-        max_length=1024,
-        choices=[(i, i) for i in IMPACT_TYPE],
-        default="Denial of Service",
+        "CVE ID", max_length=1024, unique=True, default=get_cve_default
     )
     severity = models.CharField(
         max_length=128,
@@ -689,10 +693,199 @@ class SecurityIssue(models.Model):
     summary = models.CharField(max_length=1024, help_text="Single backticks here.")
     description = models.TextField(help_text=DESCRIPTION_HELP_TEXT)
     blogdescription = models.TextField(
-        blank=True, verbose_name="Blog description", help_text="Double backticks here."
+        blank=True,
+        verbose_name="Blog description",
+        help_text="Double backticks here (general rst format).",
+    )
+    reporter = models.CharField(max_length=1024, blank=True)
+    remediator = models.CharField(max_length=1024, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    reported_at = models.DateTimeField(null=True)
+    confirmed_at = models.DateTimeField(null=True)
+
+    # Deprecated. Left here for historical/migration purposes.
+    other_type = models.CharField(
+        max_length=1024, help_text="Deprecated.", default="Other"
+    )
+    attack_type = models.CharField(
+        max_length=1024, help_text="Deprecated.", default="Remote"
     )
 
-    reporter = models.CharField(max_length=1024, blank=True)
+    # No choices for these, for now. Browse problem and impact types at the linked URLs.
+    cve_type = models.TextField(
+        "CWE Problem Type",
+        help_text=(
+            "Comma separated list of Common Weakness Enumeration "
+            "(<strong>CWE</strong>) types.</br>Browse available types at: "
+            '<a href="https://cwe.mitre.org/">https://cwe.mitre.org/</a></br>'
+            "Examples:</br><code>"
+            "CWE-23 Relative Path Traversal</br>"
+            "CWE-79: Improper Neutralization of Input During Web Page Generation "
+            "('Cross-site Scripting')</br>"
+            "CWE-89 Improper Neutralization of Special Elements used in an SQL Command "
+            "('SQL Injection')</br>"
+            "CWE-352: Cross-Site Request Forgery (CSRF)</br>"
+            "CWE-117 Improper Output Neutralization for Logs</br>"
+            "CWE-770 Allocation of Resources Without Limits or Throttling</code>"
+        ),
+    )
+    impact = models.TextField(
+        "CAPEC Impact Type",
+        help_text=(
+            "Comma separated list of Common Attack Pattern Enumeration and "
+            "Classification (<strong>CAPEC</strong>) types.</br>"
+            'Browse available types at: <a href="https://capec.mitre.org/">'
+            "https://capec.mitre.org/</a></br>Examples:</br><code>"
+            "CAPEC-54 Query System for Information</br>"
+            "CAPEC-62 Cross Site Request Forgery</br>"
+            "CAPEC-63 Cross-Site Scripting (XSS)</br>"
+            "CAPEC-66 SQL Injection</br>"
+            "CAPEC-93 Log Injection-Tampering-Forging</br>"
+            "CAPEC-491 Quadratic Data Expansion</code>"
+        ),
+    )
+
+    # CVSS 4.0 Fields. Base Metrics.
+
+    # Exploitability Metrics.
+    attack_vector = models.CharField(
+        "CVSS Attack Vector",
+        max_length=16,
+        choices=CVSS_ATTACK_VECTOR_CHOICES,
+        default="N",
+        help_text="The context by which vulnerability exploitation is possible (AV)",
+    )
+    attack_complexity = models.CharField(
+        "CVSS Attack Complecity",
+        max_length=8,
+        choices=CVSS_ATTACK_COMPLEXITY_CHOICES,
+        default="L",
+        help_text="Conditions beyond attacker control required to exploit (AC)",
+    )
+    attack_requirements = models.CharField(
+        "CVSS Attack Requirements",
+        max_length=8,
+        choices=CVSS_ATTACK_REQUIREMENTS_CHOICES,
+        default="N",
+        help_text="Preconditions for attack to be successful (AT)",
+    )
+    privileges_required = models.CharField(
+        "CVSS Privileges Required",
+        max_length=8,
+        choices=CVSS_PRIVILEGES_REQUIRED_CHOICES,
+        default="N",
+        help_text="Level of privileges needed to exploit (PR)",
+    )
+    user_interaction = models.CharField(
+        "CVSS User Interaction",
+        max_length=8,
+        choices=CVSS_USER_INTERACTION_CHOICES,
+        default="N",
+        help_text="Whether user interaction is required (UI)",
+    )
+
+    # Vulnerable System Impact Metrics and Subsequent System Impact Metrics.
+    vuln_confidentiality_impact = models.CharField(
+        "CVSS Confidentiality Impact",
+        max_length=8,
+        choices=CVSS_IMPACT_CHOICES,
+        default="N",
+        help_text="Impact on confidentiality of information (VC)",
+    )
+    sub_confidentiality_impact = models.CharField(
+        "CVSS Subsequent Confidentiality Impact",
+        max_length=8,
+        choices=CVSS_IMPACT_CHOICES,
+        default="N",
+        help_text="Subsequent impact on confidentiality (SC)",
+    )
+    vuln_integrity_impact = models.CharField(
+        "CVSS Integrity Impact",
+        max_length=8,
+        choices=CVSS_IMPACT_CHOICES,
+        default="N",
+        help_text="Impact on integrity of information (VI)",
+    )
+    sub_integrity_impact = models.CharField(
+        "CVSS Subsequent Integrity Impact",
+        max_length=8,
+        choices=CVSS_IMPACT_CHOICES,
+        default="N",
+        help_text="Subsequent impact on integrity of information (SI)",
+    )
+    vuln_availability_impact = models.CharField(
+        "CVSS Availability Impact",
+        max_length=8,
+        choices=CVSS_IMPACT_CHOICES,
+        default="N",
+        help_text="Impact on availability of system (VA)",
+    )
+    sub_availability_impact = models.CharField(
+        "CVSS Subsequent Availability Impact",
+        max_length=8,
+        choices=CVSS_IMPACT_CHOICES,
+        default="N",
+        help_text="Subsequent impact on availability of system (SA)",
+    )
+
+    # CVSS 4.0 Fields. Supplemental Metrics.
+    safety = models.CharField(
+        "CVSS Safety",
+        max_length=16,
+        choices=CVSS_SAFETY_CHOICES,
+        default="X",
+        help_text="Potential impact on safety of humans or environment (S)",
+    )
+    automatable = models.CharField(
+        "CVSS Automatable",
+        max_length=16,
+        choices=CVSS_AUTOMATABLE_CHOICES,
+        default="X",
+        help_text="Ease of automation for exploit (AU)",
+    )
+    recovery = models.CharField(
+        "CVSS Recovery",
+        max_length=16,
+        choices=CVSS_RECOVERY_CHOICES,
+        default="X",
+        help_text="Ease of recovery from the vulnerability (R)",
+    )
+    value_density = models.CharField(
+        "CVSS Value Density",
+        max_length=16,
+        choices=CVSS_VALUE_DENSITY_CHOICES,
+        default="X",
+        help_text="Control gained over resources with a single exploitation event (V)",
+    )
+    vulnerability_response_effort = models.CharField(
+        "CVSS Response Effort",
+        max_length=16,
+        choices=CVSS_VULNERABILITY_RESPONSE_EFFORT_CHOICES,
+        default="X",
+        help_text="Effort needed by provider to respond (RE)",
+    )
+    provider_urgency = models.CharField(
+        "CVSS Urgency",
+        max_length=16,
+        choices=CVSS_PROVIDER_URGENCY_CHOICES,
+        default="X",
+        help_text="Urgency perceived by provider to respond (U)",
+    )
+
+    cvss_base_score = models.PositiveSmallIntegerField(
+        "CVSS Base Score",
+        default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(10)],
+        help_text=(
+            "Base score (0–10) calculated from the CVSS v4.0 metrics.</br>"
+            "This value should be computed from the CVSS selected metric "
+            "fields using the official CVSS v4.0 formula.</br>See "
+            '<a href="https://www.first.org/cvss/calculator/4-0">'
+            "https://www.first.org/cvss/calculator/4-0</a>"
+        ),
+    )
+
     release = models.ForeignKey(
         SecurityRelease,
         help_text="Security Release that will fix this issue.",
@@ -707,6 +900,49 @@ class SecurityIssue(models.Model):
 
     def __str__(self):
         return self.cve_year_number
+
+    @cached_property
+    def cve_description(self):
+        affected = format_releases_for_cves(self.releases.all())
+        return (
+            f"An issue was discovered in {affected}.\n{self.description}\n"
+            "Earlier, unsupported Django series (such as 5.0.x, 4.1.x, and 3.2.x) "
+            "were not evaluated and may also be affected.\n"
+            f"Django would like to thank {self.reporter} for reporting this issue."
+        )
+
+    @property
+    def cvss_base_severity(self):
+        if self.cvss_base_score == 0:
+            return "NONE"
+        elif self.cvss_base_score < 4:
+            return "LOW"
+        elif self.cvss_base_score < 7:
+            return "MEDIUM"
+        elif self.cvss_base_score < 9:
+            return "HIGH"
+        else:
+            return "CRITICAL"
+
+    @property
+    def cvss_vector(self):
+        # Default when all values are default:
+        # CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:N/SC:N/SI:N/SA:N
+        parts = [
+            "CVSS:4.0",
+            f"AV:{self.attack_vector}",
+            f"AC:{self.attack_complexity}",
+            f"AT:{self.attack_requirements}",
+            f"PR:{self.privileges_required}",
+            f"UI:{self.user_interaction}",
+            f"VC:{self.vuln_confidentiality_impact}",
+            f"SC:{self.sub_confidentiality_impact}",
+            f"VI:{self.vuln_integrity_impact}",
+            f"SI:{self.sub_integrity_impact}",
+            f"VA:{self.vuln_availability_impact}",
+            f"SA:{self.sub_availability_impact}",
+        ]
+        return "/".join(parts)
 
     @property
     def headline_for_blogpost(self):
@@ -732,6 +968,7 @@ class SecurityIssue(models.Model):
 
     @property
     def cve_data(self):
+        dsf_cna_uuid = "ToDo"
         affected_unaffected_versions = []
         versions = []
         for release in self.releases.filter(status="f").order_by("-version"):
@@ -740,65 +977,204 @@ class SecurityIssue(models.Model):
                 [
                     {
                         "status": "affected",
-                        "version": f"{release.feature_version}.0",
+                        "version": f"{release.feature_version}",
                         "lessThan": release.version,
                         "versionType": "semver",
                     },
                     {
                         "status": "unaffected",
                         "version": release.version,
-                        "lessThan": f"{release.feature_version}.*",
                         "versionType": "semver",
                     },
                 ]
             )
-        return {
-            "title": self.summary.replace("`", ""),
-            "metrics": [
+        dates = {"timeline": []}
+        if self.reported_at:
+            dates["timeline"].append(
                 {
-                    "other": {
-                        "content": {
-                            "value": self.severity,
-                            "namespace": SEVERITY_LEVELS_DOCS,
-                        },
-                        "type": "Django severity rating",
-                    }
+                    "lang": "en",
+                    "time": self.reported_at.isoformat(),
+                    "value": "Initial report received.",
                 },
-            ],
-            "descriptions": [{"lang": "en", "value": self.description}],
-            "affected": [
+            )
+        if self.confirmed_at:
+            dates["timeline"].append(
                 {
-                    "packageName": "django",
-                    "collectionURL": "https://github.com/django/django/",
-                    "defaultStatus": "affected",
-                    "versions": affected_unaffected_versions,
+                    "lang": "en",
+                    "time": self.confirmed_at.isoformat(),
+                    "value": "Vulnerability confirmed.",
+                },
+            )
+
+        references = [
+            {
+                "url": "https://docs.djangoproject.com/en/dev/releases/security/",
+                "name": "Django security archive",
+                "tags": ["vendor-advisory"],
+            },
+            {
+                "url": "https://groups.google.com/g/django-announce",
+                "name": "Django releases announcements",
+                "tags": ["mailing-list"],
+            },
+        ]
+        credits = [
+            {
+                "lang": "en",
+                "type": "reporter",
+                "value": self.reporter,
+            },
+        ]
+        if self.remediator:
+            credits.append(
+                {
+                    "lang": "en",
+                    "type": "remediation developer",
+                    "value": self.remediator,
                 }
-            ],
-            "references": [
+            )
+
+        if self.release:
+            dates["datePublic"] = when = self.release.when.isoformat()
+            dates["timeline"].append(
+                {
+                    "lang": "en",
+                    "time": when,
+                    "value": "Security release issued.",
+                },
+            )
+            references.append(
                 {
                     "url": self.release.blogpost_link,
                     "name": self.release.blogpost_title,
                     "tags": ["vendor-advisory"],
                 }
-            ],
-            "credits": [
+            )
+            credits.append(
                 {
                     "lang": "en",
-                    "type": "reporter",
-                    "value": (
-                        f"Django would like to thank {self.reporter} for reporting "
-                        "this issue."
-                    ),
+                    "type": "coordinator",
+                    "value": self.release.releaser.user.get_full_name(),
                 }
-            ],
-            "timeline": [
+            )
+
+        metrics = [
+            {
+                "other": {
+                    "content": {
+                        "value": self.severity,
+                        "namespace": SEVERITY_LEVELS_DOCS,
+                    },
+                    "type": "Django severity rating",
+                }
+            },
+        ]
+        if self.cna == "DSF":
+            metrics.append(
+                {
+                    "format": "CVSS",
+                    "scenarios": [
+                        {"lang": "en", "value": "GENERAL"},
+                    ],
+                    "cvssV4_0": {  # XXX ToDo
+                        "version": "4.0",
+                        "attackVector": "NETWORK",
+                        "attackComplexity": "LOW",
+                        "attackRequirements": "PRESENT",
+                        "privilegesRequired": "NONE",
+                        "userInteraction": "ACTIVE",
+                        "vulnConfidentialityImpact": "NONE",
+                        "subConfidentialityImpact": "NONE",
+                        "vulnIntegrityImpact": "LOW",
+                        "subIntegrityImpact": "NONE",
+                        "vulnAvailabilityImpact": "NONE",
+                        "subAvailabilityImpact": "NONE",
+                        "Safety": "NOT_DEFINED",
+                        "Automatable": "NOT_DEFINED",
+                        "Recovery": "NOT_DEFINED",
+                        "valueDensity": "NOT_DEFINED",
+                        "vulnerabilityResponseEffort": "NOT_DEFINED",
+                        "providerUrgency": "NOT_DEFINED",
+                        "baseSeverity": self.cvss_base_severity,
+                        "baseScore": self.cvss_base_score,
+                        "vectorString": self.cvss_vector,
+                    },
+                }
+            )
+        details = {
+            "title": self.summary.replace("`", ""),
+            "metrics": metrics,
+            "descriptions": [
                 {
                     "lang": "en",
-                    "time": self.release.when.isoformat(),
-                    "value": "Made public.",
+                    "value": self.cve_description,
+                    "supportingMedia": [
+                        {
+                            "type": "text/html",
+                            "base64": False,
+                            "value": self.cve_description.replace("\n", "<br>"),
+                        },
+                    ],
+                },
+            ],
+            "affected": [
+                {
+                    "collectionURL": "https://pypi.org/project/Django/",
+                    "defaultStatus": "unaffected",
+                    "packageName": "django",
+                    "product": "Django",
+                    "repo": "https://github.com/django/django/",
+                    "vendor": "djangoproject",
+                    "versions": affected_unaffected_versions,
                 }
             ],
-            "datePublic": self.release.when.strftime("%m/%d/%Y"),  # mm/dd/yyyy
+            "references": references,
+            "credits": credits,
+            **dates,
+            "source": {"discovery": "EXTERNAL"},
+        }
+
+        # Workaround until the DSF becomes a CNA.
+        if self.cna != "DSF":
+            return details
+
+        return {
+            "dataType": "CVE_RECORD",
+            "dataVersion": "5.1",
+            "cveMetadata": {
+                "cveId": self.cve_year_number,
+                "assignerOrgId": dsf_cna_uuid,
+                "state": "PUBLISHED",
+            },
+            "containers": {
+                "cna": {
+                    "providerMetadata": {"orgId": dsf_cna_uuid},
+                    "problemTypes": [
+                        {
+                            "descriptions": [
+                                {
+                                    "lang": "en",
+                                    "cweId": self.cve_type.split()[0],
+                                    "description": self.cve_type,
+                                    "type": "CWE",
+                                },
+                            ],
+                        },
+                    ],
+                    "impacts": [
+                        {
+                            "capecId": self.impact.split()[0],
+                            "descriptions": [
+                                {
+                                    "lang": "en",
+                                    "value": self.impact,
+                                },
+                            ],
+                        },
+                    ],
+                    **details,
+                },
+            },
         }
 
     @property
@@ -809,13 +1185,43 @@ class SecurityIssue(models.Model):
     def cve_minified_json(self):
         return json.dumps(self.cve_data, sort_keys=True, separators=(",", ":"))
 
-    def clean(self, *args, **kwargs):
-        if self.cve_type == CVE_TYPE_OTHER and not self.other_type:
-            raise ValidationError(
-                '"Other type" needs to be set when "Vulnerability type" is '
-                + CVE_TYPE_OTHER
-            )
-        if self.cve_type != CVE_TYPE_OTHER and self.other_type:
-            raise ValidationError(
-                f'"Other type" should be blank for "{self.cve_type}".'
-            )
+    def calculate_cvss_base_score(self):
+        """Implements CVSS v4.0 Base Score calculation (per FIRST.org spec).
+
+        Unused for now, could be used to provide a suggestion or default value.
+
+        """
+
+        # Numeric mappings from the v4.0 spec
+        AV = {"N": 0.85, "A": 0.62, "L": 0.55, "P": 0.2}
+        AC = {"L": 0.77, "H": 0.44}
+        PR = {"N": 0.85, "L": 0.62, "H": 0.27}
+        UI = {"N": 0.85, "A": 0.62, "P": 0.85}
+        IMP = {"N": 0.0, "LOW": 0.22, "HIGH": 0.56}
+
+        av = AV[self.attack_vector]
+        ac = AC[self.attack_complexity]
+        pr = PR[self.privileges_required]
+        ui = UI[self.user_interaction]
+        c = IMP[self.vuln_confidentiality_impact]
+        i = IMP[self.vuln_integrity_impact]
+        a = IMP[self.vuln_availability_impact]
+
+        # Exploitability Subscore
+        exploitability = 8.22 * av * ac * pr * ui
+
+        # Impact Subscore
+        impact_subscore = 1 - ((1 - c) * (1 - i) * (1 - a))
+
+        # Base score formula (official v4.0)
+        base_score = 0
+        if impact_subscore > 0:
+            base_score = min(impact_subscore + exploitability, 10)
+
+        import math
+
+        # Round up to one decimal per spec
+        return math.ceil(base_score * 10) / 10.0
+
+    def get_absolute_url(self):
+        return reverse("generator:cve_json_record", args=[self.cve_year_number])

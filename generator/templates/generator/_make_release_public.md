@@ -1,5 +1,4 @@
-- [ ] Go to the [Add release page in the admin](https://www.djangoproject.com/admin/releases/release/add/), enter the following:
-    - Version: {{ release }}
+- [ ] Edit the the [release entry in the admin](https://www.djangoproject.com/admin/releases/release/{{ release }}/):
     - Is active: False
     - LTS: {{ release.is_lts }}
     - Release date: {{ release.date.isoformat }}
