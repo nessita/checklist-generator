@@ -1,4 +1,5 @@
-from django.contrib.auth.decorators import permission_required
+from django.contrib.auth.decorators import login_required, permission_required
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
 from markdown import markdown
 
@@ -7,6 +8,7 @@ from generator.models import (
     FeatureRelease,
     PreRelease,
     Release,
+    SecurityIssue,
     SecurityRelease,
 )
 
@@ -52,7 +54,18 @@ def release_checklist(request, version):
     return render_checklist(request, instance)
 
 
-@permission_required("generator.view_securityrelease")
+@login_required
+@permission_required(
+    ["generator.view_securityrelease", "generator.view_securityissue"],
+    raise_exception=True,
+)
 def securityrelease_checklist(request, pk):
     instance = get_object_or_404(SecurityRelease, pk=pk)
     return render_checklist(request, instance)
+
+
+@login_required
+@permission_required("generator.view_securityissue", raise_exception=True)
+def cve_json_record(request, cve_id):
+    issue = get_object_or_404(SecurityIssue, cve_year_number=cve_id)
+    return JsonResponse(issue.cve_data)

@@ -15,4 +15,5 @@ urlpatterns = [
         views.securityrelease_checklist,
         name="securityrelease_checklist",
     ),
+    path("security/issue/<str:cve_id>/", views.cve_json_record, name="cve_json_record"),
 ]
