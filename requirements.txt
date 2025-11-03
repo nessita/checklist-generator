@@ -16,7 +16,7 @@ flake8==7.3.0
     # via -r requirements.in
 isort==7.0.0
     # via -r requirements.in
-markdown==3.9
+markdown==3.10
     # via
     #   -r requirements.in
     #   pymdown-extensions
@@ -30,7 +30,7 @@ pathspec==0.12.1
     # via black
 platformdirs==4.5.0
     # via black
-psycopg==3.2.10
+psycopg==3.2.12
     # via -r requirements.in
 pycodestyle==2.14.0
     # via flake8
