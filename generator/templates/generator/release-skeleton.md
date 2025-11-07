@@ -84,6 +84,25 @@
         - e.g. https://github.com/django/django/commit/aed303aff57ac990894b6354af001b0e8ea55f71.
 {% endif %}
 {% if release.status == "c" %}
-- [ ] Post on Forum calling for translations!
+- [ ] Create a new topic in the `Internationalization` category in the Discourse forum
+    - https://forum.djangoproject.com/c/internals/i18n/14
+    - Title: `Django {{ release.feature_version }} string freeze is in effect, translations needed!`
+    - Tags: {% for tag in instance.tags %}`{{ tag }}`{% if not forloop.last %}, {% endif %}{% endfor %}
     - e.g. https://forum.djangoproject.com/t/django-5-0-string-freeze-is-in-effect-translations-needed/25511
+    - Content:
+```
+Hello everyone!
+
+Django {{ release.version_verbose }} was released today, establishing the string freeze
+for the {{ release.feature_version }} release. This means that strings marked for translations will not change
+between now and the final release, scheduled for approximately one month from now.
+
+It would be extremely helpful if you could ensure that the Django translations
+for the languages you contribute to are complete on [Transifex](https://explore.transifex.com/django/django/).
+We will be fetching the available translations a few days before the final release.
+
+For more information about Django translations, refer to the [Localizing docs](https://docs.djangoproject.com/en/stable/internals/contributing/localizing/).
+
+Thank you very much for your help!
+```
 {% endif %}
