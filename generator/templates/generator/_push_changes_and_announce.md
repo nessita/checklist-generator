@@ -20,11 +20,12 @@ Details are available on the Django project weblog:
 {{ instance.blogpost_link }}
 ```
 
-- [ ] Post in forum https://forum.djangoproject.com/t/django-release-announcements/655/
-    - e.g. https://forum.djangoproject.com/t/django-release-announcements/655/71
+- [ ] Create a new topic in the `Releases` category in the Discourse forum
+    - https://forum.djangoproject.com/c/announcements/releases/31
+    - Title: `{{ instance.blogpost_title }}`
+    - Tags: {% for tag in instance.tags %}`{{ tag }}`{% if not forloop.last %}, {% endif %}{% endfor %}
+    - Content:
 ```
-## {{ instance.blogpost_title }}
-
 :mega: Announcement: {{ instance.blogpost_link }}
 
 :tada: Release notes:

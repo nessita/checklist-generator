@@ -590,7 +590,8 @@ class PreReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
                 )
                 if status == "rc":
                     self.assertIn(
-                        "- [ ] Post on Forum calling for translations!",
+                        "- [ ] Create a new topic in the `Internationalization` "
+                        "category in the Discourse forum",
                         checklist_content,
                     )
                 else:

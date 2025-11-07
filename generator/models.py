@@ -466,6 +466,10 @@ class ReleaseChecklist(models.Model):
     def versions(self):
         return [r.version for r in self.affected_releases]
 
+    @cached_property
+    def tags(self):
+        return [r.feature_version.replace(".", "-") for r in self.affected_releases]
+
     def get_absolute_url(self):
         return reverse("generator:release_checklist", kwargs={"version": self.version})
 
@@ -624,6 +628,14 @@ class SecurityRelease(ReleaseChecklist):
     def versions(self):
         # Same as ReleaseChecklist, but leave pre-releases out.
         return [r.version for r in self.affected_releases if not r.is_pre_release]
+
+    @cached_property
+    def tags(self):
+        return ["security"] + [
+            r.feature_version.replace(".", "-")
+            for r in self.affected_releases
+            if not r.is_pre_release
+        ]
 
     @cached_property
     def latest_release(self):
