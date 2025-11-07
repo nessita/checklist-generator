@@ -1,20 +1,15 @@
 - [ ] Switch to the branch and update it:
     - `git checkout {% if release != "main" %}{{ release.stable_branch }}{% else %}main{% endif %} && git pull -v`
-
-- [ ] Apply patch
-    - `git am path/to/patch/for/{{ release }}`
+{% for cve in cves %}
+- [ ] Apply patch for **{{ cve }}**
+    - `git am path/to/patch/for/{{ release }}/000{{ forloop.counter }}-{{ cve }}.patch`
     - `git am --abort` to the rescue if there are issues
 {% if release != "main" %}
-- [ ] **Amend** the commit message and record resulting hash:
-    - `git commit --amend && git show`
-    - Add `{{ release.commit_prefix }}` **prefix** to first line of commit msg
-    - Append `Backport of {HASH-FROM-MAIN} from main.` at the end
-
-- [ ] **SAVE** resulting hash in the
-  [through model](/admin/generator/securityissuereleasesthrough/?release__version={{ release }}):
-    - `git show`
-{% else %}
-- [ ] **SAVE** resulting hash in the `Commit hash main` field in the
-  [issue instance](/admin/generator/securityissue/?release={{ instance.id }}):
-    - `git show`
+    - [ ] **Amend** the commit message to add prefix, backport hash, and record resulting hash:
+        - `git commit --amend && git show`
+        - `{{ release.commit_prefix }}`
+        - `Backport of {{ cve.commit_hash_main|default:"{HASH-FROM-MAIN}" }} from main.`
 {% endif %}
+    - [ ] **SAVE** resulting hash in the [security issue instance](/admin/generator/securityissue/?q={{ cve }})
+          *{% if release != "main" %}(scroll down to inlines){% else %}(use the `Commit hash main` field){% endif %}*
+{% endfor %}
