@@ -7,12 +7,15 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.shortcuts import reverse
+from django.template.defaultfilters import urlize
 from django.template.loader import render_to_string
 from django.utils.crypto import get_random_string
 from django.utils.functional import cached_property
 
 from .templatetags.generator_extras import enumerate_items, format_releases_for_cves
 from .utils import get_loose_version_tuple
+
+CNA_DSF_UUID = "6a34fbeb-21d4-45e7-8e0a-62b95bc12c92"
 
 # CVSS metrics choices.
 
@@ -911,6 +914,13 @@ class SecurityIssue(models.Model):
             f"Django would like to thank {self.reporter} for reporting this issue."
         )
 
+    @cached_property
+    def cve_html_description(self):
+        return "".join(
+            f"<p>{line.strip()}</p>"
+            for line in urlize(self.cve_description).split("\n")
+        )
+
     @property
     def cvss_base_severity(self):
         if self.cvss_base_score == 0:
@@ -968,7 +978,6 @@ class SecurityIssue(models.Model):
 
     @property
     def cve_data(self):
-        dsf_cna_uuid = "ToDo"
         affected_unaffected_versions = []
         versions = []
         for release in self.releases.filter(status="f").order_by("-version"):
@@ -1066,7 +1075,7 @@ class SecurityIssue(models.Model):
                         "namespace": SEVERITY_LEVELS_DOCS,
                     },
                     "type": "Django severity rating",
-                }
+                },
             },
         ]
         if self.cna == "DSF":
@@ -1112,7 +1121,7 @@ class SecurityIssue(models.Model):
                         {
                             "type": "text/html",
                             "base64": False,
-                            "value": self.cve_description.replace("\n", "<br>"),
+                            "value": self.cve_html_description,
                         },
                     ],
                 },
@@ -1143,18 +1152,18 @@ class SecurityIssue(models.Model):
             "dataVersion": "5.1",
             "cveMetadata": {
                 "cveId": self.cve_year_number,
-                "assignerOrgId": dsf_cna_uuid,
+                "assignerOrgId": CNA_DSF_UUID,
                 "state": "PUBLISHED",
             },
             "containers": {
                 "cna": {
-                    "providerMetadata": {"orgId": dsf_cna_uuid},
+                    "providerMetadata": {"orgId": CNA_DSF_UUID},
                     "problemTypes": [
                         {
                             "descriptions": [
                                 {
                                     "lang": "en",
-                                    "cweId": self.cve_type.split()[0],
+                                    "cweId": self.cve_type.split(":")[0],
                                     "description": self.cve_type,
                                     "type": "CWE",
                                 },
@@ -1163,7 +1172,7 @@ class SecurityIssue(models.Model):
                     ],
                     "impacts": [
                         {
-                            "capecId": self.impact.split()[0],
+                            "capecId": self.impact.split(":")[0],
                             "descriptions": [
                                 {
                                     "lang": "en",

@@ -50,8 +50,10 @@
           ```
     {% endwith %}{% endfor %}
 {% else %}
-    - Send an email to `cna@djangoproject.com`
-        - With CNA credentials, reserve CVE IDs with: `cve --interactive reserve`
+    - Send an email to `cna@djangoproject.com` requesting the CVEs
+        - With CNA credentials, reserve CVE IDs using
+          [RedHat's cvelib](https://github.com/RedHatProductSecurity/cvelib):
+        - `cve --interactive reserve {{ cves_length }}`
 {% endif %}
 
 ## 10 days before
@@ -97,7 +99,7 @@
 
 - [ ] Empty push to private GH so actions are (re)run
 
-- [ ] Regenerate patches against latest revno in each branch
+- [ ] Regenerate patches against latest revno in each security branch
     - `git format-patch HEAD~{{ cves_length }}`
 
 ### Phase 0: apply patches and build binaries -- DO NOT PUSH NOR PUBLISH ANYTHING YET
@@ -126,8 +128,7 @@
 {% include 'generator/release_security_archive.rst' %}
 ```
     - In an environment with django branch and docs dependencies installed:
-        - `make html`
-        - `make check`
+        - `make html check`
         - `git commit -a -m 'Added {{ cves|enumerate_cves }} to security archive.'`
 
     - Check links from local docs
@@ -159,14 +160,10 @@
     - Subject: `Django {{ cves|enumerate_cves }}`
     - Body with blogpost link and content, and CVE data (PASTE blogpost content!!!):
 ```
-* Announce link: {{ instance.blogpost_link }}
-
-* Announce content: <blogpost content>
-
-* CVE JSON Records:
+* Announce: {{ instance.blogpost_link }}
 {% for cve in cves %}
-{{ cve.cve_json|safe }}
-{% endfor %}
+* CVE JSON Record for {{ cve }}: {% if cve.cna == "DSF" %}https://www.cve.org/CVERecord?id={{ cve }}
+{% else %}{{ cve.cve_json|safe }}{% endif %}{% endfor %}
 ```
 
 - [ ] Close PRs in security repo linking hashes

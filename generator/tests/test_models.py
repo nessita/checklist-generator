@@ -458,6 +458,13 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
             "were not evaluated and may also be affected.\n"
             f"Django would like to thank {reporter} for reporting this issue."
         )
+        expected_html_description = (
+            "<p>An issue was discovered in 5.0 before 5.0.14 and 5.1 before 5.1.8.</p>"
+            f"<p>{cve_description}</p>"
+            "<p>Earlier, unsupported Django series (such as 5.0.x, 4.1.x, and 3.2.x) "
+            "were not evaluated and may also be affected.</p>"
+            f"<p>Django would like to thank {reporter} for reporting this issue.</p>"
+        )
         expected = [
             ("affected", affected_versions),
             ("credits", credits),
@@ -472,7 +479,7 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
                             {
                                 "type": "text/html",
                                 "base64": False,
-                                "value": expected_description.replace("\n", "<br>"),
+                                "value": expected_html_description,
                             },
                         ],
                     },
