@@ -166,6 +166,9 @@
 {% else %}{{ cve.cve_json|safe }}{% endif %}{% endfor %}
 ```
 
+- [ ] Disclose open report in HackerOne (H1) if there is one
+    - Assign bounty
+
 - [ ] Close PRs in security repo linking hashes
   {% regroup instance.hashes_by_versions|dictsortreversed:"branch" by branch as items %}
   {% for item in items %}
