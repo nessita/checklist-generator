@@ -230,6 +230,14 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
         with self.subTest(task="Push and announce steps added"):
             self.assertPushAndAnnouncesAdded(checklist, checklist_content)
 
+        with self.subTest(task="Update HackerOne"):
+            self.assertInChecklistContent(
+                "Close open report(s) in HackerOne", checklist_content
+            )
+            self.assertInChecklistContent(
+                "Disclose report(s) in HackerOne", checklist_content
+            )
+
     def test_render_checklist_affects_prerelease(self):
         releases = [
             self.factory.make_release(version="5.0.14", date=date(2025, 4, 2)),

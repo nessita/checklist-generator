@@ -166,8 +166,26 @@
 {% else %}{{ cve.cve_json|safe }}{% endif %}{% endfor %}
 ```
 
-- [ ] Disclose open report in HackerOne (H1) if there is one
-    - Assign bounty
+- [ ] Close open report(s) in HackerOne if applicable  
+    - Go to https://hackerone.com/bugs?organization_inbox_handle=django_inbox  
+    - Select the relevant report and close it as `Resolved` with message:  
+```
+This issue was fixed and released on {{ instance.when }}.
+
+{{ instance.blogpost_title }}
+
+Details are available on the Django project weblog:
+{{ instance.blogpost_link }}
+```
+
+- [ ] Disclose report(s) in HackerOne if applicable  
+    - Remove the report from the "Pending bounty" queue  
+    - Click "Set award" → select "No award (ineligible)" and add the comment:  
+```
+Django does not offer monetary rewards for security reports.
+You may submit the issue to the Internet Bug Bounty program following:
+https://hackerone.com/ibb
+```
 
 - [ ] Close PRs in security repo linking hashes
   {% regroup instance.hashes_by_versions|dictsortreversed:"branch" by branch as items %}
