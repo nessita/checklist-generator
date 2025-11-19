@@ -1,6 +1,7 @@
-Django {{ final_version }} release candidate 1 is now available. It represents the
-final opportunity for you to try out `{{ instance.feature_release.tagline }}`__
-before Django {{ final_version }} is released.
+Django {{ final_version }} release candidate 1 is now available. It represents
+the final opportunity for you to try out the version that
+`{{ instance.feature_release.tagline }}`__,
+before Django {{ final_version }} final is released.
 
 __ https://docs.djangoproject.com/en/dev/releases/{{ final_version }}/
 

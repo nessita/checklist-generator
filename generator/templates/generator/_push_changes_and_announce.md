@@ -19,7 +19,19 @@
 Details are available on the Django project weblog:
 {{ instance.blogpost_link }}
 ```
+{% if instance.is_pre_release %}
+- [ ] Update the [pre-releases forum post]({{ instance.forum_post }}) with the release announcement
+    - New reply with content:
+```
+## {{ instance.blogpost_title }}
 
+:mega: Announcement: {{ instance.blogpost_link }}
+
+:tada: Release notes:
+
+  * https://docs.djangoproject.com/en/dev/releases/{{ instance.feature_release.version }}
+```
+{% else %}
 - [ ] Create a new topic in the `Releases` category in the Discourse forum
     - https://forum.djangoproject.com/c/announcements/releases/31
     - Title: `{{ instance.blogpost_title }}`
@@ -29,8 +41,7 @@ Details are available on the Django project weblog:
 :mega: Announcement: {{ instance.blogpost_link }}
 
 :tada: Release notes:
-{% if instance.is_pre_release %}
- * https://docs.djangoproject.com/en/dev/releases/{{ instance.feature_release.version }}
-{% else %}{% for version in instance.versions %}
- * https://docs.djangoproject.com/en/stable/releases/{{ version }}{% endfor %}{% endif %}
+{% for version in instance.versions %}
+ * https://docs.djangoproject.com/en/stable/releases/{{ version }}{% endfor %}
 ```
+{% endif %}
