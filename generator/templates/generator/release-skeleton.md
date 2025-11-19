@@ -1,6 +1,28 @@
 {% load generator_extras %}
 # Django {{ release.version_verbose }} {{ title }} - {{ when|date }}
 
+{% if release.status == "a" %}
+## One or Two months before Feature Freeze
+- [ ] Create a new topic in the `Prereleases` category in the Discourse forum
+    - https://forum.djangoproject.com/c/announcements/prereleases/32
+    - Title: `Django {{ release.feature_version }} release - timeline and next steps`
+    - Tags: {% for tag in instance.tags %}`{{ tag }}`{% if not forloop.last %}, {% endif %}{% endfor %}
+    - Content:
+```
+:mega: It's time to prepare for Django {{ release.feature_version }}!
+
+Hello!
+
+It's time to look ahead to our next feature release: Django {{ release.feature_version }}.
+You can find the timeline in the [roadmap page](https://www.djangoproject.com/download/{{ release.feature_version }}/roadmap/).
+
+If you are working on something that is nearly ready, feel free to share it here. We are happy to support progress where we can.
+Please keep in mind that not every in-progress feature will make it into this release, and anything that does not land will be reconsidered for future feature releases.
+
+At this point, most of the larger features planned for {{ release.feature_version }} are already underway, but there is still room for smaller or well-scoped contributions. We would love to hear what you are working on.
+```
+{% endif %}
+
 ## Before Release
 
 - [ ] Resolve release blockers
@@ -91,14 +113,12 @@
     - e.g. https://forum.djangoproject.com/t/django-5-0-string-freeze-is-in-effect-translations-needed/25511
     - Content:
 ```
-Hello everyone!
+Hello Translators!
 
-Django {{ release.version_verbose }} was released today, establishing the string freeze
-for the {{ release.feature_version }} release. This means that strings marked for translations will not change
-between now and the final release, scheduled for approximately one month from now.
+Django {{ release.version_verbose }} was [released today]({{ instance.blogpost_link }}), establishing the string freeze for the {{ release.feature_version }} release.
+This means that strings marked for translations will not change between now and the final release, scheduled for approximately two weeks from now.
 
-It would be extremely helpful if you could ensure that the Django translations
-for the languages you contribute to are complete on [Transifex](https://explore.transifex.com/django/django/).
+It would be extremely helpful if you could ensure that the Django translations for the languages you contribute to are complete on [Transifex](https://explore.transifex.com/django/django/).
 We will be fetching the available translations a few days before the final release.
 
 For more information about Django translations, refer to the [Localizing docs](https://docs.djangoproject.com/en/stable/internals/contributing/localizing/).
