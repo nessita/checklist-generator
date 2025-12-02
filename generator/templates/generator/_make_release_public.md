@@ -1,4 +1,5 @@
-- [ ] Edit the the [release entry in the admin](https://www.djangoproject.com/admin/releases/release/{{ release }}/):
+- [ ] Add (or edit if existing) the the [release entry in the admin](https://www.djangoproject.com/admin/releases/release?version={{ release }}):
+    - Version: {{ release }}
     - Is active: False
     - LTS: {{ release.is_lts }}
     - Release date: {{ release.date.isoformat }}
@@ -7,12 +8,11 @@
     - Save
     - Check at: https://www.djangoproject.com/admin/releases/release/{{ release }}/change/
 
-- [ ] Test the release locally with https://code.djangoproject.com/wiki/ReleaseTestNewVersion
-    - `RELEASE_VERSION={{ release }} test_new_version.sh`
+- [ ] Test the release locally with script from `scripts` folder:
+    - `VERSION={{ release }} scripts/test_new_version.sh`
 
-- [ ] CONFIRM RELEASE via jenkins job
-    - https://djangoci.com/job/confirm-release/ "Build with parameters" passing
-    version: `{{ release.version }}`
+- [ ] Confirm the release signature with script from `scripts` folder:
+    - `VERSION={{ release }} scripts/confirm_release.sh`
 
 - [ ] Upload to PyPI with Twine (use commands printed by release script)
     - `twine upload --repository django dist/*`

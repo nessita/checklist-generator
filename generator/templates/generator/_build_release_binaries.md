@@ -5,8 +5,11 @@
     - `git commit -a -m '{{ release.commit_prefix }} Bumped version for {{ release.version_verbose }} release.'`
     - e.g. https://github.com/django/django/commit/25fec8940b24107e21314ab6616e18ce8dec1c1c
 
-- [ ] Run release script from https://code.djangoproject.com/wiki/ReleaseScript
-    - `PGP_KEY_ID={{ releaser.key_id }} PGP_KEY_URL={{ releaser.key_url }} DEST_FOLDER=~/fellowship/releases do_django_release.py`
+- [ ] Enable the venv dedicated to build releases:
+    - `source ~/.venvs/djangorelease/bin/activate`
+
+- [ ] Run release script from `scripts` folder:
+    - `PGP_KEY_ID={{ releaser.key_id }} PGP_KEY_URL={{ releaser.key_url }} DEST_FOLDER=../releases scripts/do_django_release.py`
 
 - [ ] Execute ALL commands except for those to upload to Django admin and upload to PyPI, including:
     - `gpg --clearsign --digest-algo SHA256 <path-to-checksums-folder>/Django-{{ release.version }}.checksum.txt`

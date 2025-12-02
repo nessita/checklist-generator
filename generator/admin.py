@@ -101,7 +101,7 @@ class SecurityIssueAdmin(admin.ModelAdmin):
     ]
     list_filter = ["severity", "release"]
     search_fields = ["cve_year_number", "summary", "description", "commit_hash_main"]
-    ordering = ["-cve_year_number"]
+    ordering = ["-updated_at", "-created_at", "-cve_year_number"]
     readonly_fields = [
         "cvss_base_severity",
         "cvss_vector",
@@ -110,6 +110,92 @@ class SecurityIssueAdmin(admin.ModelAdmin):
     formfield_overrides = {
         models.CharField: {"widget": forms.TextInput(attrs={"size": "100"})},
     }
+
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    "cna",
+                    "cve_year_number",
+                    "severity",
+                    "summary",
+                    "description",
+                    "blogdescription",
+                    "reporter",
+                    "remediator",
+                    "reported_at",
+                    "confirmed_at",
+                    "cve_type",
+                    "impact",
+                    "release",
+                    "commit_hash_main",
+                )
+            },
+        ),
+        (
+            "CVSS 4.0 Fields - Base Metrics - Exploitability",
+            {
+                "fields": (
+                    "attack_vector",
+                    "attack_complexity",
+                    "attack_requirements",
+                    "privileges_required",
+                    "user_interaction",
+                ),
+                "classes": ["collapse"],
+            },
+        ),
+        (
+            "CVSS 4.0 Fields - Base Metrics - Vulnerable System Impact",
+            {
+                "fields": (
+                    "vuln_confidentiality_impact",
+                    "sub_confidentiality_impact",
+                    "vuln_integrity_impact",
+                    "sub_integrity_impact",
+                    "vuln_availability_impact",
+                    "sub_availability_impact",
+                ),
+                "classes": ["collapse"],
+            },
+        ),
+        (
+            "CVSS 4.0 Fields - Supplemental Metrics",
+            {
+                "fields": (
+                    "safety",
+                    "automatable",
+                    "recovery",
+                    "value_density",
+                    "vulnerability_response_effort",
+                    "provider_urgency",
+                ),
+                "classes": ["collapse"],
+            },
+        ),
+        (
+            "CVSS 4.0 Fields - Score and Vector",
+            {
+                "fields": (
+                    "cvss_base_score",
+                    "cvss_base_severity",
+                    "cvss_vector",
+                ),
+                "classes": ["collapse"],
+            },
+        ),
+        (
+            "Deprecated",
+            {
+                "fields": (
+                    "other_type",
+                    "attack_type",
+                ),
+                "classes": ["collapse"],
+            },
+        ),
+    )
 
     def cve_json_record_link(self, obj):
         url = obj.get_absolute_url()

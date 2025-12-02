@@ -91,3 +91,10 @@ def rst_backticks(text):
 def rst_underline_for_headline(headline, headline_char="="):
     headline_underline = headline_char * len(headline)
     return f"{headline}\n{headline_underline}"
+
+
+@register.filter
+def stub_release_notes_title(version):
+    title = f"Django {version} release notes"
+    title_underline = "=" * len(title)
+    return f"{title_underline}\n{title}\n{title_underline}"
