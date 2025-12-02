@@ -732,32 +732,35 @@ class SecurityIssue(models.Model):
         "CWE Problem Type",
         help_text=(
             "Comma separated list of Common Weakness Enumeration "
-            "(<strong>CWE</strong>) types.</br>Browse available types at: "
+            "(<strong>CWE</strong>) types.</br>MUST CONTAIN COLON SEPARATOR!</br>"
+            "Browse available types at: "
             '<a href="https://cwe.mitre.org/">https://cwe.mitre.org/</a></br>'
             "Examples:</br><code>"
-            "CWE-23 Relative Path Traversal</br>"
+            "CWE-23: Relative Path Traversal</br>"
             "CWE-79: Improper Neutralization of Input During Web Page Generation "
             "('Cross-site Scripting')</br>"
-            "CWE-89 Improper Neutralization of Special Elements used in an SQL Command "
+            "CWE-89: Improper Neutralization of Special Elements used in an SQL "
+            "Command "
             "('SQL Injection')</br>"
             "CWE-352: Cross-Site Request Forgery (CSRF)</br>"
-            "CWE-117 Improper Output Neutralization for Logs</br>"
-            "CWE-770 Allocation of Resources Without Limits or Throttling</code>"
+            "CWE-117: Improper Output Neutralization for Logs</br>"
+            "CWE-770: Allocation of Resources Without Limits or Throttling</code>"
         ),
     )
     impact = models.TextField(
         "CAPEC Impact Type",
         help_text=(
             "Comma separated list of Common Attack Pattern Enumeration and "
-            "Classification (<strong>CAPEC</strong>) types.</br>"
+            "Classification (<strong>CAPEC</strong>) types.</br>MUST CONTAIN COLON "
+            "SEPARATOR!</br>"
             'Browse available types at: <a href="https://capec.mitre.org/">'
             "https://capec.mitre.org/</a></br>Examples:</br><code>"
-            "CAPEC-54 Query System for Information</br>"
-            "CAPEC-62 Cross Site Request Forgery</br>"
-            "CAPEC-63 Cross-Site Scripting (XSS)</br>"
-            "CAPEC-66 SQL Injection</br>"
-            "CAPEC-93 Log Injection-Tampering-Forging</br>"
-            "CAPEC-491 Quadratic Data Expansion</code>"
+            "CAPEC-54: Query System for Information</br>"
+            "CAPEC-62: Cross Site Request Forgery</br>"
+            "CAPEC-63: Cross-Site Scripting (XSS)</br>"
+            "CAPEC-66: SQL Injection</br>"
+            "CAPEC-93: Log Injection-Tampering-Forging</br>"
+            "CAPEC-491: Quadratic Data Expansion</code>"
         ),
     )
 
@@ -1090,14 +1093,14 @@ class SecurityIssue(models.Model):
                 },
             },
         ]
-        if self.cna == "DSF":
+        if False and self.cna == "DSF":  # XXX ToDo
             metrics.append(
                 {
                     "format": "CVSS",
                     "scenarios": [
                         {"lang": "en", "value": "GENERAL"},
                     ],
-                    "cvssV4_0": {  # XXX ToDo
+                    "cvssV4_0": {
                         "version": "4.0",
                         "attackVector": "NETWORK",
                         "attackComplexity": "LOW",

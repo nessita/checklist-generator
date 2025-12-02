@@ -51,8 +51,14 @@
     {% endwith %}{% endfor %}
 {% else %}
     - Send an email to `cna@djangoproject.com` requesting the CVEs
-        - With CNA credentials, reserve CVE IDs using
-          [RedHat's cvelib](https://github.com/RedHatProductSecurity/cvelib):
+
+    - If you have CNA credentials, reserve CVE IDs as follows:
+
+        - Enable venv with [RedHat's cvelib](https://github.com/RedHatProductSecurity/cvelib) installed
+
+        - Export credentials without storing them in the shell history!
+            - ` export CVE_USER=<user-email>@djangoproject.com CVE_ORG=DSF CVE_API_KEY=<user-api-key>`
+
         - `cve --interactive reserve {{ cves_length }}`
 {% endif %}
 
@@ -120,23 +126,7 @@
 
 ### Phase 2: update release notes and the security archive
 {% include "generator/_stub_release_notes.md" with release=instance.latest_release %}
-- [ ]  In the `main` branch, add security patches entry to archive and backport
-    - `git checkout main`
-    - Edit `docs/releases/security.txt`
-      - Need hashes!
-```
-{% include 'generator/release_security_archive.rst' %}
-```
-    - In an environment with django branch and docs dependencies installed:
-        - `make html check`
-        - `git commit -a -m 'Added {{ cves|enumerate_cves }} to security archive.'`
-
-    - Check links from local docs
-        - `firefox _build/html/releases/security.html`
-    - Backport security archive update to all branches!
-        {% for release in instance.affected_releases %}
-        - `git checkout {{ release.stable_branch }} && backport.sh {HASH}`
-        {% endfor %}
+{% include "generator/_update_security_archive.md" %}
 
 ### Final tasks -- PUSH EVERYTHING TO BRANCHES
 
@@ -150,9 +140,16 @@
 {% else %}
 - [ ] Request publication of the CVE ID(s) via email to `cna@djangoproject.com` for all issues.
 
-    - If you have CNA credentials, publish each CVE with:
+    - If you have CNA credentials, publish each CVE as follows:
+
+        - Enable venv with [RedHat's cvelib](https://github.com/RedHatProductSecurity/cvelib) installed
+
+        - Export credentials without storing them in the shell history!
+            - ` export CVE_USER=<user-email>@djangoproject.com CVE_ORG=DSF CVE_API_KEY=<user-api-key>`
+
+        - Store each CVE record in a `.json` file and run:
         {% for cve in cves %}
-        - `cve publish {{ cve }} --cve-json '{{ cve.cve_minified_json|safe }}'{% endfor %}
+            - `cve publish {{ cve }} --cve-json-file {{ cve }}.json`{% endfor %}
 {% endif %}
 - [ ] Send email to the OSS Security mailing list notifying about the release
     - To: `oss-security@lists.openwall.com`

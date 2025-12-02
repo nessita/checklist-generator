@@ -1,28 +1,36 @@
 {% load generator_extras %}
-- [ ] In the `main` branch, start release notes for the next version only for the latest stable branch:
+- [ ] In the `main` branch, start release notes for the next version for the latest stable branch:
 
     - `git checkout main`{% with next_version=release|next_version %}
-    - Edit `docs/releases/index.txt` and add an entry for `{{ next_version }}`
-    - Create empty file for release at `docs/releases/{{ next_version }}.txt`:
-    ```
-    ==========================
-    Django {{ next_version }} release notes
-    ==========================
 
-    *Expected {{ release.date|next_release_date|date:"F j, Y" }}*
+    - Edit existing file `docs/releases/index.txt`
+        - Add an entry for: `{{ next_version }}`
 
-    Django {{ next_version }} fixes several bugs in {{ release.version }}.
+    - Add new file `docs/releases/{{ next_version }}.txt`
+        - Content for stub releases notes:
+```
+{{ next_version|stub_release_notes_title }}
 
-    Bugfixes
-    ========
+*Expected {{ release.date|next_release_date|date:"F j, Y" }}*
 
-    * ...
+Django {{ next_version }} fixes several bugs in {{ release.version }}.
 
-    ```
-    - Confirm docs works
-        - `make html check`
+Bugfixes
+========
+
+* ...
+
+```
+
+    - In an environment with django branch and docs dependencies installed:
+        - `cd docs && make html check`
+
+    - Check local docs:
+        - `firefox docs/_build/html/releases/index.html`
+
     - Add the new file and commit
         - `git add docs/releases/{{ next_version }}.txt`
         - `git commit -a -m 'Added stub release notes for {{ next_version }}.'`
-    - Backport new release notes to latest stable branch!
+
+    - Backport stub release notes to latest stable branch!
         - `backport.sh {HASH}`{% endwith %}

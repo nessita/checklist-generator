@@ -3,7 +3,7 @@
 {% for cve in cves %}
 - [ ] Apply patch for **{{ cve }}**
     - `git am path/to/patch/for/{{ release }}/000{{ forloop.counter }}-{{ cve }}.patch`
-    - `git am --abort` to the rescue if there are issues
+        - `git am --abort` to the rescue if there are issues
 {% if release != "main" %}
     - [ ] **Amend** the commit message to add prefix, backport hash, and record resulting hash:
         - `git commit --amend && git show`

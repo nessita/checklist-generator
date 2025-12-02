@@ -66,14 +66,13 @@ class BaseChecklistTestCaseMixin:
         self.assertIn(expected, content)
         version = release.version
         data = [
-            "- [ ] Edit the the [release entry in the admin]"
-            f"(https://www.djangoproject.com/admin/releases/release/{version}/)",
+            "- [ ] Add (or edit if existing) the the [release entry in the admin]"
+            f"(https://www.djangoproject.com/admin/releases/release?version={version})",
             "- Is active: False",
             f"- LTS: {release.is_lts}",
             f"- Release date: {release.date.isoformat()}",
-            f"- `RELEASE_VERSION={version} test_new_version.sh`",
-            '- https://djangoci.com/job/confirm-release/ "Build with parameters" '
-            f"passing\n    version: `{version}`",
+            f"- `VERSION={version} scripts/test_new_version.sh`",
+            f"- `VERSION={version} scripts/confirm_release.sh`",
             "- `twine upload --repository django dist/*`",
             '- [ ] Mark the release as "active" in\n  '
             f"https://www.djangoproject.com/admin/releases/release/{version}/change/",
