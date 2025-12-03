@@ -16,7 +16,7 @@ has reached the end of mainstream support. The final minor bug fix release,
 `{{ instance.eom_release.version }}
 <https://docs.djangoproject.com/en/stable/releases/{{ instance.eom_release.version }}/>`_,
 was issued on {{ instance.eom_release.date }}. Django {{ instance.eom_release.feature_version }}
-will receive security and data loss fixes until {{ instance.eom_release.eol_date }}.
+will receive security and data loss fixes until {{ instance.eom_release.feature_release.eol_date|date:"F, Y" }}.
 All users are encouraged to upgrade before then to continue receiving fixes for
 security issues.
 {% endif %}

@@ -662,9 +662,10 @@ class FeatureReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
             "- [ ] Update the metadata for the docs in "
             "https://www.djangoproject.com/admin/docs/documentrelease/",
             "- Create new `DocumentRelease` objects for each language",
-            "- [ ] Update djangoproject.com's [robots.docs.txt]",
+            "- [ ] Extend [robots.docs.txt](https://github.com/django/"
+            "djangoproject.com/blob/main/djangoproject/static/robots.docs.txt)",
+            "- [ ] Advance the version in the download page's tables",
             "- [ ] Update the current stable branch and remove the pre-release branch",
-            "- [ ] Update the download page on djangoproject.com.",
             version_trove_classifier_updates,
             post_release_bump,
         ]

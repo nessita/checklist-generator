@@ -343,6 +343,10 @@ class Release(models.Model):  # This is the exact model from djangoproject.com
         return f"{self.major}.{self.minor}"
 
     @cached_property
+    def feature_release(self):
+        return Release.objects.get(version=self.feature_version)
+
+    @cached_property
     def series(self):
         return f"{self.major}.x"
 
