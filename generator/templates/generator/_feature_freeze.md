@@ -59,5 +59,7 @@
     - Update the current branch under active development
     - Add the pre-release branch
 
-- [ ] Update `docs/fixtures/doc_releases.json` for djangoproject.com:
+- [ ] Update `docs/fixtures/doc_releases.json` and
+      `releases/fixtures/doc_releases.json` for djangoproject.com:
     - `python manage_translations.py export_json doc_releases.json`
+    - e.g. https://github.com/django/djangoproject.com/pull/2209

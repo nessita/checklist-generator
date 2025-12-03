@@ -15,6 +15,7 @@
     - `VERSION={{ release }} scripts/confirm_release.sh`
 
 - [ ] Upload to PyPI with Twine (use commands printed by release script)
+    - `cd ../releases/{{ release }}`
     - `twine upload --repository django dist/*`
     - https://pypi.org/project/Django/{{ release }}/
 

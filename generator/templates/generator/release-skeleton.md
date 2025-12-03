@@ -23,12 +23,19 @@ At this point, most of the larger features planned for {{ release.feature_versio
 ```
 {% endif %}
 
-## Before Release
+## A few days before any release
 
 - [ ] Resolve release blockers
-{% if instance.forum_post %}- [ ] Update [forum post]({{ instance.forum_post }}) with any relevant news{% endif %}
+{% if instance.forum_post %}
+- [ ] Update [forum post]({{ instance.forum_post }}) with any relevant news
+{% endif %}
 {% include 'generator/_write_blogpost.md' with final_version=release.feature_version %}
 {% if release.is_dot_zero %}
+- [ ] Update translations from Transifex
+    - See [how to release Django docs](https://docs.djangoproject.com/en/dev/internals/howto-release-django/#a-few-days-before-any-release)
+      and [example commit in stable branch](https://github.com/django/django/commit/cc31b389a11559396fc039511c0dc567d9ade469)
+    - Forwardport the commit from the stable branch into `main` ([example commit](https://github.com/django/django/commit/cb27e5b9c0703fb0edd70b2138e3e53a78c9551d))
+
 - [ ] Create a new branch from the current stable branch in the [django-docs-translations repository](https://github.com/django/django-docs-translations):
     - `git checkout -b {{ release.stable_branch }} origin/{{ instance.eom_release.stable_branch }}`
     - `git push origin {{ release.stable_branch }}:{{ release.stable_branch }}`
@@ -40,7 +47,9 @@ At this point, most of the larger features planned for {{ release.feature_versio
 ## Release Day
 
 - [ ] Polish and  make cosmetic edits to release notes on `main` and backport
-    {% if not release.is_pre_release %}- Remove the `Expected` prefix and update the release date if necessary{% endif %}
+    {% if not release.is_pre_release %}
+    - Remove the `Expected` prefix and update the release date if necessary
+    {% endif %}
     {% if release.is_dot_zero %}- Remove the `UNDER DEVELOPMENT` header at the top of the release notes:
         - e.g. https://github.com/django/django/commit/1994a2643881a9e3f9fa8d3e0794c1a9933a1831{% endif %}
 
@@ -73,17 +82,17 @@ At this point, most of the larger features planned for {{ release.feature_versio
     - Set `is_default` flag to `True` in the `DocumentRelease` English entry for this release (this will automatically flip all the others to `False`).
     - Create new `DocumentRelease` objects for each language that has an entry for the previous release.
 
-- [ ] Update djangoproject.com's [robots.docs.txt](https://github.com/django/djangoproject.com/blob/main/djangoproject/static/robots.docs.txt) file:
-    - This is the result from running in the [django-docs-translations repository](https://github.com/django/django-docs-translations)
-    - `git checkout {{ release.stable_branch }} && git pull -v`
-    - `python manage_translations.py robots_txt`
-    - e.g. https://github.com/django/djangoproject.com/pull/1445
+- [ ] Update djangoproject.com:
+    - [ ] Extend [robots.docs.txt](https://github.com/django/djangoproject.com/blob/main/djangoproject/static/robots.docs.txt) file
+        - Add the result from running in the following using the [django-docs-translations repository](https://github.com/django/django-docs-translations)
+        - `git checkout {{ release.stable_branch }} && git pull -v`
+        - `python manage_translations.py robots_txt`
+        - e.g. https://github.com/django/djangoproject.com/pull/1445
+    - [ ] Advance the version in the download page's tables
+        - e.g. https://github.com/django/djangoproject.com/commit/942a242df7b63f579ca995132bbf0ae0bd3dbbc2
 
 - [ ] Update the current stable branch and remove the pre-release branch in the
-      [Django release process](https://code.djangoproject.com/#Djangoreleaseprocess) on Trac.
-
-- [ ] Update the download page on djangoproject.com.
-    - e.g. https://github.com/django/django/commit/d2b1ec551567c208abfdd21b27ff6d08ae1a6371.
+      [Django release process](https://code.djangoproject.com/#Djangoreleaseprocess) on Trac
 
 - [ ] Update the `default_version` setting in the code.djangoproject.com's `trac.ini` file
     - e.g. https://github.com/django/code.djangoproject.com/pull/268
