@@ -242,7 +242,7 @@ class Release(models.Model):  # This is the exact model from djangoproject.com
         null=True,
         blank=True,
         default=datetime.date.today,
-        help_text="Leave blank if the release date isn't know yet, typically "
+        help_text="Leave blank if the release date isn't known yet, typically "
         "if you're creating the final release just after the alpha "
         "because you want to build docs for the upcoming version.",
     )
