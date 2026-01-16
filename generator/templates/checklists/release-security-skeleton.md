@@ -1,4 +1,4 @@
-{% load generator_extras %}
+{% load checklist_extras %}
 {% with cves=instance.cves versions=instance.versions cves_length=instance.cves|length %}
 # Django Security Release: {{ versions|enumerate_items }} ({{ when }})
 
@@ -76,7 +76,7 @@
         - Reference: https://github.com/django/django-security/wiki/Security-prenotification-email-template
         - Remove backticks from code symbols
 ```
-{% include "generator/release-security-prenotification.md" %}
+{% include "checklists/release-security-prenotification.md" %}
 ```
     - GPG sign that new file:
         - `gpg --clearsign --digest-algo SHA256 prenotification-email.txt`
@@ -111,31 +111,31 @@
 ### Phase 0: apply patches and build binaries -- DO NOT PUSH NOR PUBLISH ANYTHING YET
 
 #### For `main`
-{% include 'generator/_apply_security_patch.md' with release="main" %}
+{% include 'checklists/_apply_security_patch.md' with release="main" %}
 {% for release in instance.affected_releases %}
 #### For {{ release.version }}{% if release.is_pre_release %} (at pre-release {{ release.get_status_display }} status)
-{% include 'generator/_apply_security_patch.md' %}
+{% include 'checklists/_apply_security_patch.md' %}
 {% else %}
-{% include 'generator/_apply_security_patch.md' %}{% include 'generator/_build_release_binaries.md' %}{% endif %}
+{% include 'checklists/_apply_security_patch.md' %}{% include 'checklists/_build_release_binaries.md' %}{% endif %}
 {% endfor %}
 
 ### Phase 1: publish artifacts -- ONLY 15 MINUTES BEFORE RELEASE TIME
 {% for release in instance.affected_releases %}{% if not release.is_pre_release %}
 #### For {{ release.version }}
-{% include 'generator/_make_release_public.md' %}{% endif %}{% endfor %}
+{% include 'checklists/_make_release_public.md' %}{% endif %}{% endfor %}
 
 ### Phase 2: update release notes and the security archive
-{% include "generator/_stub_release_notes.md" with release=instance.latest_release %}
-{% include "generator/_update_security_archive.md" %}
+{% include "checklists/_stub_release_notes.md" with release=instance.latest_release %}
+{% include "checklists/_update_security_archive.md" %}
 
 ### Final tasks -- PUSH EVERYTHING TO BRANCHES
 
-{% include 'generator/_write_blogpost.md' %}
-{% include "generator/_push_changes_and_announce.md" %}
+{% include 'checklists/_write_blogpost.md' %}
+{% include "checklists/_push_changes_and_announce.md" %}
 {% if "MITRE" in instance.cnas %}
 - [ ] Notify `mitre.org` about the CVE publication
 {% for cve in cves %}
-{% include "generator/_cve_publication.md" %}
+{% include "checklists/_cve_publication.md" %}
 {% endfor %}
 {% else %}
 - [ ] Request publication of the CVE ID(s) via email to `cna@djangoproject.com` for all issues.
@@ -163,9 +163,9 @@
 {% else %}{{ cve.cve_json|safe }}{% endif %}{% endfor %}
 ```
 
-- [ ] Close open report(s) in HackerOne if applicable  
-    - Go to https://hackerone.com/bugs?organization_inbox_handle=django_inbox  
-    - Select the relevant report and close it as `Resolved` with message:  
+- [ ] Close open report(s) in HackerOne if applicable
+    - Go to https://hackerone.com/bugs?organization_inbox_handle=django_inbox
+    - Select the relevant report and close it as `Resolved` with message:
 ```
 This issue was fixed and released on {{ instance.when }}.
 
@@ -175,9 +175,9 @@ Details are available on the Django project weblog:
 {{ instance.blogpost_link }}
 ```
 
-- [ ] Disclose report(s) in HackerOne if applicable  
-    - Remove the report from the "Pending bounty" queue  
-    - Click "Set award" → select "No award (ineligible)" and add the comment:  
+- [ ] Disclose report(s) in HackerOne if applicable
+    - Remove the report from the "Pending bounty" queue
+    - Click "Set award" → select "No award (ineligible)" and add the comment:
 ```
 Django does not offer monetary rewards for security reports.
 You may submit the issue to the Internet Bug Bounty program following:

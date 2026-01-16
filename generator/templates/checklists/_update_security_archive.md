@@ -1,11 +1,11 @@
-{% load generator_extras %}
+{% load checklist_extras %}
 - [ ] In the `main` branch, add security patches entry to archive and backport
 
     - `git checkout main`
 
     - Edit existing file `docs/releases/security.txt`
 ```
-{% include 'generator/release_security_archive.rst' %}
+{% include 'checklists/release_security_archive.rst' %}
 ```
 
     - In an environment with django branch and docs dependencies installed:

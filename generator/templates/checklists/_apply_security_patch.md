@@ -10,6 +10,6 @@
         - `{{ release.commit_prefix }}`
         - `Backport of {{ cve.commit_hash_main|default:"{HASH-FROM-MAIN}" }} from main.`
 {% endif %}
-    - [ ] **SAVE** resulting hash in the [security issue instance](/admin/generator/securityissue/?q={{ cve }})
+    - [ ] **SAVE** resulting hash in the [security issue instance]({% url 'admin:'|add:app_label|add:'_securityissue_change' cve.id %})
           *{% if release != "main" %}(scroll down to inlines){% else %}(use the `Commit hash main` field){% endif %}*
 {% endfor %}

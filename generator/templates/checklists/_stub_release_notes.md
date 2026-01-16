@@ -1,4 +1,4 @@
-{% load generator_extras %}
+{% load checklist_extras %}
 - [ ] In the `main` branch, start release notes for the next version for the latest stable branch:
 
     - `git checkout main`{% with next_version=release|next_version %}

@@ -1,4 +1,4 @@
-{% load generator_extras %}
+{% load checklist_extras %}
 - [ ] Change version in `django/__init__.py` and maybe trove classifier:
     - `VERSION = {{ release.version_tuple|format_version_tuple|safe }}`{% if not instance.is_security_release %}
     - Ensure the "Development Status" trove classifier in `pyproject.toml` is: `{{ instance.trove_classifier }}`{% endif %}

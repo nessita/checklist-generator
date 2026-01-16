@@ -18,7 +18,7 @@ from django.utils.crypto import get_random_string
 from django.utils.functional import cached_property
 from django.utils.version import get_complete_version, get_main_version
 
-from .templatetags.generator_extras import enumerate_items, format_releases_for_cves
+from .templatetags.checklist_extras import enumerate_items, format_releases_for_cves
 from .utils import get_loose_version_tuple
 
 
@@ -504,12 +504,16 @@ class ReleaserManager(models.Manager):
 
 
 class Releaser(models.Model):
-    # Eventually a djangoproject.com User.
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
     key_id = models.CharField(
         max_length=100, help_text="gpg --list-keys --keyid-format LONG"
     )
     key_url = models.URLField()
+
+    objects = ReleaserManager()
+
+    def natural_key(self):
+        return (self.user.username,)
 
     def __str__(self):
         return f"{self.user.get_full_name()}: {self.key_id} <{self.key_url}>"
@@ -521,7 +525,7 @@ class ReleaseChecklist(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    checklist_template = "generator/release-skeleton.md"
+    checklist_template = "checklists/release-skeleton.md"
     release_status_code = {v: k for k, v in Release.STATUS_REVERSE.items()}
     forum_post = None
 
@@ -540,7 +544,7 @@ class ReleaseChecklist(models.Model):
 
     @cached_property
     def blogpost_template(self):
-        return f"generator/release_{self.status_reversed}_blogpost.rst"
+        return f"checklists/release_{self.status_reversed}_blogpost.rst"
 
     @cached_property
     def blogpost_title(self):
@@ -598,6 +602,9 @@ class ReleaseChecklist(models.Model):
     def get_absolute_url(self):
         return reverse("generator:release_checklist", kwargs={"version": self.version})
 
+    def natural_key(self):
+        return (self.release.version,) if self.release else (None,)
+
     def render_to_string(self, request=None):
         context = {
             "instance": self,
@@ -605,6 +612,7 @@ class ReleaseChecklist(models.Model):
             "slug": self.slug,
             "version": self.version,
             "title": self.__class__.__name__,
+            "app_label": self._meta.app_label,
             **self.__dict__,
         }
         if (release := getattr(self, "release", None)) is not None:
@@ -612,6 +620,11 @@ class ReleaseChecklist(models.Model):
         if (data := getattr(self, "get_context_data", None)) is not None:
             context.update(data)
         return render_to_string(self.checklist_template, context, request=request)
+
+
+class FeatureReleaseManager(models.Manager):
+    def get_by_natural_key(self, version):
+        return self.get(release__version=version)
 
 
 class FeatureRelease(ReleaseChecklist):
@@ -634,6 +647,8 @@ class FeatureRelease(ReleaseChecklist):
         Release, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
     )
 
+    objects = FeatureReleaseManager()
+
     def __str__(self):
         return f"{self.version} {self.tagline}"
 
@@ -642,9 +657,16 @@ class FeatureRelease(ReleaseChecklist):
         return f"django-{self.version.replace('.', '')}-released"
 
 
+class PreReleaseManager(models.Manager):
+    def get_by_natural_key(self, version):
+        return self.get(release__version=version)
+
+
 class PreRelease(ReleaseChecklist):
     release = models.OneToOneField(Release, null=True, on_delete=models.SET_NULL)
     feature_release = models.ForeignKey(FeatureRelease, on_delete=models.CASCADE)
+
+    objects = PreReleaseManager()
 
     @cached_property
     def blogpost_summary(self):
@@ -668,14 +690,21 @@ class PreRelease(ReleaseChecklist):
         return f"django-{slug_version}-{self.status_reversed}-released"
 
 
+class BugFixReleaseManager(models.Manager):
+    def get_by_natural_key(self, version):
+        return self.get(release__version=version)
+
+
 class BugFixRelease(ReleaseChecklist):
     release = models.OneToOneField(Release, null=True, on_delete=models.SET_NULL)
+
+    objects = BugFixReleaseManager()
 
     slug = "bugfix-releases"
 
     @cached_property
     def blogpost_template(self):
-        return "generator/release_bugfix_blogpost.rst"
+        return "checklists/release_bugfix_blogpost.rst"
 
     @cached_property
     def blogpost_title(self):
@@ -693,16 +722,27 @@ class BugFixRelease(ReleaseChecklist):
         return self.version
 
 
+class SecurityReleaseManager(models.Manager):
+    def get_by_natural_key(self, when_iso):
+        when = datetime.datetime.fromisoformat(when_iso)
+        return self.get(when=when)
+
+
 class SecurityRelease(ReleaseChecklist):
-    checklist_template = "generator/release-security-skeleton.md"
+    checklist_template = "checklists/release-security-skeleton.md"
     slug = "security-releases"
+
+    objects = SecurityReleaseManager()
+
+    def natural_key(self):
+        return (self.when.isoformat(),)
 
     def __str__(self):
         return f"Security release on {self.when}"
 
     @cached_property
     def blogpost_template(self):
-        return "generator/release_security_blogpost.rst"
+        return "checklists/release_security_blogpost.rst"
 
     @cached_property
     def blogpost_title(self):
@@ -778,7 +818,7 @@ class SecurityRelease(ReleaseChecklist):
                 "securityissue", "release"
             )
             .filter(securityissue__release_id=self.id)
-            .order_by("release__version")
+            .order_by("securityissue__id", "-release__version")
         ] + [
             {
                 "branch": "main",
@@ -792,6 +832,13 @@ class SecurityRelease(ReleaseChecklist):
         return reverse("generator:securityrelease_checklist", kwargs={"pk": self.pk})
 
 
+class SecurityIssueReleasesThroughManager(models.Manager):
+    def get_by_natural_key(self, cve_year_number, version):
+        return self.get(
+            securityissue__cve_year_number=cve_year_number, release__version=version
+        )
+
+
 class SecurityIssueReleasesThrough(models.Model):
     securityissue = models.ForeignKey(
         "SecurityIssue", on_delete=models.CASCADE, verbose_name="Security Issue"
@@ -800,6 +847,11 @@ class SecurityIssueReleasesThrough(models.Model):
     commit_hash = models.CharField(
         max_length=128, default="", blank=True, db_index=True
     )
+
+    objects = SecurityIssueReleasesThroughManager()
+
+    def natural_key(self):
+        return self.securityissue.natural_key() + (self.release.version,)
 
     class Meta:
         constraints = [
@@ -815,16 +867,23 @@ class SecurityIssueReleasesThrough(models.Model):
         ]
 
 
+class SecurityIssueManager(models.Manager):
+    def get_by_natural_key(self, cve_year_number):
+        return self.get(cve_year_number=cve_year_number)
+
+
 class SecurityIssue(models.Model):
     cna = models.CharField(
         "CNA issuing the CVE ID for this issue.",
         max_length=128,
-        default="MITRE",
+        default="DSF",
         choices=[(i, i) for i in ("DSF", "MITRE")],
     )
     cve_year_number = models.CharField(
         "CVE ID", max_length=1024, unique=True, default=get_cve_default
     )
+
+    objects = SecurityIssueManager()
     severity = models.CharField(
         max_length=128,
         choices=[(i, i.capitalize()) for i in ("low", "moderate", "high")],
@@ -1043,6 +1102,9 @@ class SecurityIssue(models.Model):
 
     def __str__(self):
         return self.cve_year_number
+
+    def natural_key(self):
+        return (self.cve_year_number,)
 
     @cached_property
     def cve_description(self):
@@ -1340,7 +1402,6 @@ class SecurityIssue(models.Model):
         Unused for now, could be used to provide a suggestion or default value.
 
         """
-
         # Numeric mappings from the v4.0 spec
         AV = {"N": 0.85, "A": 0.62, "L": 0.55, "P": 0.2}
         AC = {"L": 0.77, "H": 0.44}

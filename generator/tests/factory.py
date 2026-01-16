@@ -34,10 +34,11 @@ class Factory:
         kwargs.setdefault("is_lts", version.split(".", 1)[1].startswith("2"))
         return Release.objects.create(**kwargs)
 
-    def make_releaser(self):
-        user = self.make_user(
-            username=f"releaser-{uuid4()}", first_name="Merry", last_name="Pippin"
-        )
+    def make_releaser(self, user=None):
+        if user is None:
+            user = self.make_user(
+                username=f"releaser-{uuid4()}", first_name="Merry", last_name="Pippin"
+            )
         return Releaser.objects.create(
             user=user,
             key_id="1234567890ABCDEF",
@@ -72,6 +73,12 @@ class Factory:
         releases=None,
         *,
         cve_year_number=None,
+        commit_hash_main="",
+        reported_at=None,
+        confirmed_at=None,
+        reporter="",
+        remediator="",
+        cna="MITRE",
         **kwargs,
     ):
         if security_release_checklist is None:
@@ -84,6 +91,12 @@ class Factory:
         issue = SecurityIssue.objects.create(
             release=security_release_checklist,
             cve_year_number=cve_year_number,
+            commit_hash_main=commit_hash_main,
+            reported_at=reported_at,
+            confirmed_at=confirmed_at,
+            reporter=reporter,
+            remediator=remediator,
+            cna=cna,
             **kwargs,
         )
         if releases is None:
