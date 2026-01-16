@@ -33,7 +33,7 @@ def render_checklist(request, instance):
     )
     return render(
         request,
-        "generator/checklist_detail.html",
+        "checklists/checklist_detail.html",
         {
             "instance": instance,
             "markdown": markdown_content,

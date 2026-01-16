@@ -16,12 +16,14 @@ from .models import (
 )
 
 
+@admin.register(Release)
 class ReleaseAdmin(admin.ModelAdmin):
     list_display = ["version", "date", "is_lts"]
     ordering = ["-version"]
     search_fields = ["version"]
 
 
+@admin.register(Releaser)
 class ReleaserAdmin(admin.ModelAdmin):
     list_display = ["user", "key_id", "key_url"]
 
@@ -58,26 +60,29 @@ class ReleaseChecklistAdminMixin:
         checklist = instance.render_to_string(request=request)
         return HttpResponse(checklist, content_type="text/markdown; charset=utf-8")
 
+    @admin.display(description="Checklist")
     def checklist_link(self, obj):
         url = obj.get_absolute_url()
         return format_html('<a href="{}" target="_blank">View checklist</a>', url)
 
-    checklist_link.short_description = "Checklist"
 
-
+@admin.register(BugFixRelease)
 class BugFixReleaseAdmin(ReleaseChecklistAdminMixin, admin.ModelAdmin):
     pass
 
 
+@admin.register(PreRelease)
 class PreReleaseAdmin(ReleaseChecklistAdminMixin, admin.ModelAdmin):
     list_display = ["feature_release"] + ReleaseChecklistAdminMixin.list_display
     list_filter = ["feature_release"] + ReleaseChecklistAdminMixin.list_filter
 
 
+@admin.register(FeatureRelease)
 class FeatureReleaseAdmin(ReleaseChecklistAdminMixin, admin.ModelAdmin):
     list_display = ReleaseChecklistAdminMixin.list_display + ["tagline"]
 
 
+@admin.register(SecurityRelease)
 class SecurityReleaseAdmin(ReleaseChecklistAdminMixin, admin.ModelAdmin):
     list_display = ["versions", "cves", "when", "releaser", "checklist_link"]
     search_fields = ["affected_branches"]
@@ -91,6 +96,7 @@ class SecurityIssueReleasesThroughInline(admin.TabularInline):
     autocomplete_fields = ["release"]
 
 
+@admin.register(SecurityIssue)
 class SecurityIssueAdmin(admin.ModelAdmin):
     list_display = [
         "cve_year_number",
@@ -197,13 +203,13 @@ class SecurityIssueAdmin(admin.ModelAdmin):
         ),
     )
 
+    @admin.display(description="CVE Record")
     def cve_json_record_link(self, obj):
         url = obj.get_absolute_url()
         return format_html('<a href="{}" target="_blank">CVE Record</a>', url)
 
-    cve_json_record_link.short_description = "CVE Record"
 
-
+@admin.register(SecurityIssueReleasesThrough)
 class SecurityIssueReleasesThroughAdmin(admin.ModelAdmin):
     list_display = ["securityissue__cve_year_number", "release__version", "commit_hash"]
     list_filter = ["securityissue__cve_year_number", "release__version"]
@@ -213,13 +219,3 @@ class SecurityIssueReleasesThroughAdmin(admin.ModelAdmin):
         "commit_hash",
     ]
     ordering = ["-securityissue__cve_year_number", "release__version"]
-
-
-admin.site.register(FeatureRelease, FeatureReleaseAdmin)
-admin.site.register(BugFixRelease, BugFixReleaseAdmin)
-admin.site.register(PreRelease, PreReleaseAdmin)
-admin.site.register(Release, ReleaseAdmin)
-admin.site.register(Releaser, ReleaserAdmin)
-admin.site.register(SecurityRelease, SecurityReleaseAdmin)
-admin.site.register(SecurityIssue, SecurityIssueAdmin)
-admin.site.register(SecurityIssueReleasesThrough, SecurityIssueReleasesThroughAdmin)

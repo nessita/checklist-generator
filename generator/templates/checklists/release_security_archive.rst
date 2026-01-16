@@ -1,4 +1,4 @@
-{% load generator_extras %}
+{% load checklist_extras %}
 {% for cve in cves %}
 {{ cve.headline_for_archive|rst_underline_for_headline:"-" }}
 

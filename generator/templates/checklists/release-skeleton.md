@@ -1,4 +1,4 @@
-{% load generator_extras %}
+{% load checklist_extras %}
 # Django {{ release.version_verbose }} {{ title }} - {{ when|date }}
 
 {% if release.status == "a" %}
@@ -29,7 +29,7 @@ At this point, most of the larger features planned for {{ release.feature_versio
 {% if instance.forum_post %}
 - [ ] Update [forum post]({{ instance.forum_post }}) with any relevant news
 {% endif %}
-{% include 'generator/_write_blogpost.md' with final_version=release.feature_version %}
+{% include 'checklists/_write_blogpost.md' with final_version=release.feature_version %}
 {% if release.is_dot_zero %}
 - [ ] Update translations from Transifex
     - See [how to release Django docs](https://docs.djangoproject.com/en/dev/internals/howto-release-django/#a-few-days-before-any-release)
@@ -41,7 +41,7 @@ At this point, most of the larger features planned for {{ release.feature_versio
     - `git push origin {{ release.stable_branch }}:{{ release.stable_branch }}`
 {% elif release.status == "a" %}
 ## Feature Freeze Day
-{% include 'generator/_feature_freeze.md' with final_version=release.feature_version %}
+{% include 'checklists/_feature_freeze.md' with final_version=release.feature_version %}
 {% endif %}
 
 ## Release Day
@@ -59,20 +59,20 @@ At this point, most of the larger features planned for {{ release.feature_versio
 - [ ] A release always begins from a release branch, so you should make sure you're on the up-to-date **stable branch**
     - `git checkout {{ release.stable_branch }} && git pull -v`
 
-{% if not release.is_pre_release %}{% include 'generator/_update_man_page.md' %}{% endif %}
+{% if not release.is_pre_release %}{% include 'checklists/_update_man_page.md' %}{% endif %}
 
 ### Build artifacts
-{% include 'generator/_build_release_binaries.md' %}
+{% include 'checklists/_build_release_binaries.md' %}
 
 ### Publish artifacts
 
-{% include 'generator/_make_release_public.md' %}
+{% include 'checklists/_make_release_public.md' %}
 
 ### Final tasks
 
-{% if not release.is_pre_release %}{% include "generator/_stub_release_notes.md" %}{% endif %}
+{% if not release.is_pre_release %}{% include "checklists/_stub_release_notes.md" %}{% endif %}
 
-{% include "generator/_push_changes_and_announce.md" %}
+{% include "checklists/_push_changes_and_announce.md" %}
 
 {% if release.status == "a" %}
 - [ ] Add the feature release in [Trac's versions list](https://code.djangoproject.com/admin/ticket/versions).

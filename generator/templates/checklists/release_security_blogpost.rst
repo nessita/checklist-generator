@@ -1,4 +1,4 @@
-{% load generator_extras %}
+{% load checklist_extras %}
 In accordance with `our security release policy
 <https://docs.djangoproject.com/en/dev/internals/security/>`_, the Django team
 is issuing releases for
@@ -40,7 +40,7 @@ The following releases have been issued
   `{{ version }} checksums
   <https://www.djangoproject.com/download/{{ version }}/checksum/>`_){% endfor %}
 
-{% include "generator/_releaser_info.rst" %}
+{% include "checklists/_releaser_info.rst" %}
 
 General notes regarding security reporting
 ==========================================

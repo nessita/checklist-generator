@@ -2,6 +2,7 @@ import json
 import re
 from datetime import UTC, date, datetime
 
+from django.db import IntegrityError
 from django.template.loader import render_to_string
 from django.test import RequestFactory, TestCase, override_settings
 from django.utils.timezone import make_aware
@@ -11,6 +12,9 @@ from generator.models import (
     BugFixRelease,
     FeatureRelease,
     PreRelease,
+    Releaser,
+    SecurityIssue,
+    SecurityIssueReleasesThrough,
     SecurityRelease,
 )
 from generator.tests.factory import Factory
@@ -55,13 +59,13 @@ class BaseChecklistTestCaseMixin:
 
     def assertStubReleaseNotesAdded(self, release, content):
         expected = render_to_string(
-            "generator/_stub_release_notes.md", {"release": release}
+            "checklists/_stub_release_notes.md", {"release": release}
         )
         self.assertIn(expected, content)
 
     def assertMakeReleasePublicAdded(self, release, content):
         expected = render_to_string(
-            "generator/_make_release_public.md", {"release": release}
+            "checklists/_make_release_public.md", {"release": release}
         )
         self.assertIn(expected, content)
         version = release.version
@@ -83,7 +87,7 @@ class BaseChecklistTestCaseMixin:
 
     def assertPushAndAnnouncesAdded(self, instance, content):
         expected = render_to_string(
-            "generator/_push_changes_and_announce.md",
+            "checklists/_push_changes_and_announce.md",
             context={
                 "instance": instance,
                 "releaser": instance.releaser,
@@ -128,6 +132,22 @@ class BaseChecklistTestCaseMixin:
 
 class BugFixReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
     checklist_class = BugFixRelease
+
+    def test_blogpost_properties(self):
+        release = self.factory.make_release(version="5.2.4")
+        checklist = self.make_checklist(release=release)
+        self.assertEqual(checklist.slug, "bugfix-releases")
+        self.assertEqual(
+            checklist.blogpost_title, "Django bugfix release issued: 5.2.4"
+        )
+        self.assertEqual(
+            checklist.blogpost_summary,
+            "Today the Django project issued a bugfix release for the 5.2 release "
+            "series.",
+        )
+        self.assertEqual(
+            checklist.blogpost_template, "checklists/release_bugfix_blogpost.rst"
+        )
 
     def test_render_checklist(self):
         release = self.factory.make_release(version="5.2.4")
@@ -189,7 +209,7 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
         checklist = self.make_checklist(releases=[release51, release52, prerelease])
         self.factory.make_security_issue(checklist, releases=[release52])
         self.assertEqual(
-            checklist.blogpost_template, "generator/release_security_blogpost.rst"
+            checklist.blogpost_template, "checklists/release_security_blogpost.rst"
         )
         self.assertEqual(
             checklist.blogpost_summary, "Django 5.2 and 5.1.9 fix 2 security issues"
@@ -202,6 +222,100 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
         checklist = self.make_checklist(releases=[release51, release52, prerelease])
         self.assertEqual(checklist.version, "5.2 and 5.1.9")
         self.assertEqual(checklist.versions, ["5.2", "5.1.9"])
+
+    def test_latest_release(self):
+        release51 = self.factory.make_release(version="5.1.9")
+        release52 = self.factory.make_release(version="5.2")
+        prerelease = self.factory.make_release(version="6.0a1")
+        checklist = self.make_checklist(releases=[release51, release52, prerelease])
+        self.assertEqual(checklist.latest_release, release52)
+
+    def test_tags(self):
+        release42 = self.factory.make_release(version="4.2.13")
+        release51 = self.factory.make_release(version="5.1.9")
+        release52 = self.factory.make_release(version="5.2")
+        prerelease = self.factory.make_release(version="6.0a1")
+        checklist = self.make_checklist(
+            releases=[release42, release51, release52, prerelease]
+        )
+        self.assertEqual(checklist.tags, ["security", "5-2", "5-1", "4-2"])
+
+    def test_affected_branches(self):
+        release51 = self.factory.make_release(version="5.1.9")
+        release52 = self.factory.make_release(version="5.2")
+        prerelease_alpha = self.factory.make_release(version="6.0a1")
+        prerelease_rc = self.factory.make_release(version="5.2rc1")
+        checklist = self.make_checklist(
+            releases=[release51, release52, prerelease_alpha, prerelease_rc]
+        )
+        self.assertEqual(
+            checklist.affected_branches,
+            [
+                "main",
+                "6.0 (currently at alpha status)",
+                "5.2 (currently at release candidate status)",
+                "5.2",
+                "5.1",
+            ],
+        )
+
+    def test_cnas(self):
+        release51 = self.factory.make_release(version="5.1.9")
+        release52 = self.factory.make_release(version="5.2")
+        checklist = self.make_checklist(releases=[])
+        self.factory.make_security_issue(
+            checklist,
+            [release51, release52],
+            cve_year_number="CVE-2025-11111",
+            cna="MITRE",
+        )
+        self.factory.make_security_issue(
+            checklist, [release52], cve_year_number="CVE-2025-22222", cna="DSF"
+        )
+        self.assertEqual(list(checklist.cnas), ["MITRE", "DSF"])
+
+    def test_hashes_by_versions(self):
+        release51 = self.factory.make_release(version="5.1.9")
+        release52 = self.factory.make_release(version="5.2")
+        checklist = self.make_checklist(releases=[])
+        issue1 = self.factory.make_security_issue(
+            checklist,
+            [release51, release52],
+            cve_year_number="CVE-2025-11111",
+            commit_hash_main="abc111main",
+        )
+        issue2 = self.factory.make_security_issue(
+            checklist,
+            [release52],
+            cve_year_number="CVE-2025-22222",
+            commit_hash_main="abc222main",
+        )
+
+        SecurityIssueReleasesThrough.objects.filter(
+            securityissue=issue1, release=release51
+        ).update(commit_hash="hash51issue1")
+        SecurityIssueReleasesThrough.objects.filter(
+            securityissue=issue1, release=release52
+        ).update(commit_hash="hash52issue1")
+        SecurityIssueReleasesThrough.objects.filter(
+            securityissue=issue2, release=release52
+        ).update(commit_hash="hash52issue2")
+
+        hashes = checklist.hashes_by_versions
+        expected = [
+            {"branch": "5.2", "cve": "CVE-2025-11111", "hash": "hash52issue1"},
+            {"branch": "5.1", "cve": "CVE-2025-11111", "hash": "hash51issue1"},
+            {"branch": "5.2", "cve": "CVE-2025-22222", "hash": "hash52issue2"},
+            {"branch": "main", "cve": "CVE-2025-11111", "hash": "abc111main"},
+            {"branch": "main", "cve": "CVE-2025-22222", "hash": "abc222main"},
+        ]
+        self.assertEqual(hashes, expected)
+
+    def test_no_issues(self):
+        checklist = self.make_checklist(releases=[])
+        self.assertEqual(list(checklist.cves), [])
+        self.assertEqual(list(checklist.cnas), [])
+        self.assertEqual(checklist.hashes_by_versions, [])
 
     def test_render_checklist_simple(self):
         checklist = self.make_checklist()
@@ -528,6 +642,146 @@ class SecurityReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
         with self.subTest(key="json"):
             self.assertIn(cve_json, checklist_content)
 
+    def test_cve_data_with_timeline(self):
+        releases = [
+            self.factory.make_release(version="5.1.8", date=date(2025, 4, 2)),
+        ]
+        when = datetime(2025, 4, 2, 14, 30, tzinfo=UTC)
+        reported = datetime(2025, 2, 15, 10, 0, tzinfo=UTC)
+        confirmed = datetime(2025, 3, 1, 16, 30, tzinfo=UTC)
+        checklist = self.make_checklist(releases=[], when=when)
+        issue = self.factory.make_security_issue(
+            checklist,
+            releases,
+            cve_year_number="CVE-2025-12345",
+            reporter="Alice Reporter",
+            remediator="Bob Fixer",
+            reported_at=reported,
+            confirmed_at=confirmed,
+        )
+
+        cve_data = issue.cve_data
+        self.assertIn("timeline", cve_data)
+        timeline = cve_data["timeline"]
+
+        self.assertEqual(len(timeline), 3)
+        self.assertEqual(
+            timeline[0],
+            {
+                "lang": "en",
+                "time": reported.isoformat(),
+                "value": "Initial report received.",
+            },
+        )
+        self.assertEqual(
+            timeline[1],
+            {
+                "lang": "en",
+                "time": confirmed.isoformat(),
+                "value": "Vulnerability confirmed.",
+            },
+        )
+        self.assertEqual(
+            timeline[2],
+            {
+                "lang": "en",
+                "time": when.isoformat(),
+                "value": "Security release issued.",
+            },
+        )
+
+        credits = cve_data["credits"]
+        self.assertEqual(len(credits), 3)
+        self.assertEqual(
+            credits[0], {"lang": "en", "type": "reporter", "value": "Alice Reporter"}
+        )
+        self.assertEqual(
+            credits[1],
+            {"lang": "en", "type": "remediation developer", "value": "Bob Fixer"},
+        )
+        self.assertEqual(
+            credits[2],
+            {
+                "lang": "en",
+                "type": "coordinator",
+                "value": checklist.releaser.user.get_full_name(),
+            },
+        )
+
+    def test_hashes_by_branch(self):
+        releases = [
+            self.factory.make_release(version="5.0.14"),
+            self.factory.make_release(version="5.1.8"),
+        ]
+        checklist = self.make_checklist(releases=[])
+        issue = self.factory.make_security_issue(
+            checklist, releases, commit_hash_main="abc123main"
+        )
+
+        SecurityIssueReleasesThrough.objects.filter(
+            securityissue=issue, release__version="5.0.14"
+        ).update(commit_hash="def456branch50")
+        SecurityIssueReleasesThrough.objects.filter(
+            securityissue=issue, release__version="5.1.8"
+        ).update(commit_hash="ghi789branch51")
+
+        hashes = issue.hashes_by_branch
+        self.assertEqual(
+            hashes,
+            [
+                ("main", "abc123main"),
+                ("5.1", "ghi789branch51"),
+                ("5.0", "def456branch50"),
+            ],
+        )
+
+
+class SecurityIssueReleaseThroughTestCase(TestCase):
+    factory = Factory()
+
+    def test_unique_constraint_securityissue_release(self):
+        release = self.factory.make_release(version="5.2")
+        checklist = self.factory.make_security_checklist(releases=[])
+        issue = self.factory.make_security_issue(checklist, [release])
+
+        with self.assertRaises(IntegrityError):
+            SecurityIssueReleasesThrough.objects.create(
+                securityissue=issue, release=release
+            )
+
+    def test_unique_constraint_commit_hash(self):
+        release1 = self.factory.make_release(version="5.1.8")
+        release2 = self.factory.make_release(version="5.2")
+        checklist = self.factory.make_security_checklist(releases=[])
+        issue = self.factory.make_security_issue(checklist, [release1, release2])
+
+        SecurityIssueReleasesThrough.objects.filter(
+            securityissue=issue, release=release1
+        ).update(commit_hash="abc123")
+
+        through2 = SecurityIssueReleasesThrough.objects.get(
+            securityissue=issue, release=release2
+        )
+        through2.commit_hash = "abc123"
+        with self.assertRaises(IntegrityError):
+            through2.save()
+
+    def test_empty_commit_hash_allowed_multiple_times(self):
+        release1 = self.factory.make_release(version="5.1.8")
+        release2 = self.factory.make_release(version="5.2")
+        checklist = self.factory.make_security_checklist(releases=[])
+        issue = self.factory.make_security_issue(checklist, [release1, release2])
+
+        through1 = SecurityIssueReleasesThrough.objects.get(
+            securityissue=issue, release=release1
+        )
+        through2 = SecurityIssueReleasesThrough.objects.get(
+            securityissue=issue, release=release2
+        )
+
+        self.assertEqual(through1.commit_hash, "")
+        self.assertEqual(through2.commit_hash, "")
+
 
 class PreReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
     checklist_class = PreRelease
@@ -560,7 +814,7 @@ class PreReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
                 )
                 self.assertEqual(
                     checklist.blogpost_template,
-                    f"generator/release_{checklist.status_reversed}_blogpost.rst",
+                    f"checklists/release_{checklist.status_reversed}_blogpost.rst",
                 )
                 expected = (
                     f"Today Django 6.0 {verbose} 1, a preview/testing package for the "
@@ -624,7 +878,7 @@ class FeatureReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
         checklist = self.make_checklist(release=release)
         self.assertEqual(checklist.blogpost_title, "Django 6.0 released")
         self.assertEqual(
-            checklist.blogpost_template, "generator/release_final_blogpost.rst"
+            checklist.blogpost_template, "checklists/release_final_blogpost.rst"
         )
         self.assertEqual(checklist.blogpost_summary, "Django 6.0 has been released!")
 
@@ -691,3 +945,90 @@ class FeatureReleaseChecklistTestCase(BaseChecklistTestCaseMixin, TestCase):
             self.assertIn(
                 "Django 5.0 has reached the end of extended support.", checklist_content
             )
+
+
+class NaturalKeyTestCase(TestCase):
+    factory = Factory()
+
+    def test_releaser_natural_key(self):
+        user = self.factory.make_user(username="testuser")
+        releaser = self.factory.make_releaser(user=user)
+
+        natural_key = releaser.natural_key()
+        self.assertEqual(natural_key, ("testuser",))
+
+        retrieved = Releaser.objects.get_by_natural_key("testuser")
+        self.assertEqual(retrieved, releaser)
+
+    def test_feature_release_natural_key(self):
+        release = self.factory.make_release(version="6.0")
+        checklist = self.factory.make_checklist(FeatureRelease, release=release)
+
+        natural_key = checklist.natural_key()
+        self.assertEqual(natural_key, ("6.0",))
+
+        retrieved = FeatureRelease.objects.get_by_natural_key("6.0")
+        self.assertEqual(retrieved, checklist)
+
+    def test_pre_release_natural_key(self):
+        feature_release = self.factory.make_feature_release_checklist("6.0")
+        release = self.factory.make_release(version="6.0a1")
+        checklist = self.factory.make_checklist(
+            PreRelease, feature_release=feature_release, release=release
+        )
+
+        natural_key = checklist.natural_key()
+        self.assertEqual(natural_key, ("6.0a1",))
+
+        retrieved = PreRelease.objects.get_by_natural_key("6.0a1")
+        self.assertEqual(retrieved, checklist)
+
+    def test_bugfix_release_natural_key(self):
+        release = self.factory.make_release(version="5.2.4")
+        checklist = self.factory.make_checklist(BugFixRelease, release=release)
+
+        natural_key = checklist.natural_key()
+        self.assertEqual(natural_key, ("5.2.4",))
+
+        retrieved = BugFixRelease.objects.get_by_natural_key("5.2.4")
+        self.assertEqual(retrieved, checklist)
+
+    def test_security_release_natural_key(self):
+        when = make_aware(datetime(2025, 4, 2, 14, 30))
+        checklist = self.factory.make_security_checklist(releases=[], when=when)
+
+        natural_key = checklist.natural_key()
+        self.assertEqual(natural_key, (when.isoformat(),))
+
+        retrieved = SecurityRelease.objects.get_by_natural_key(when.isoformat())
+        self.assertEqual(retrieved, checklist)
+
+    def test_security_issue_natural_key(self):
+        checklist = self.factory.make_security_checklist(releases=[])
+        issue = self.factory.make_security_issue(
+            checklist, cve_year_number="CVE-2025-12345"
+        )
+
+        natural_key = issue.natural_key()
+        self.assertEqual(natural_key, ("CVE-2025-12345",))
+
+        retrieved = SecurityIssue.objects.get_by_natural_key("CVE-2025-12345")
+        self.assertEqual(retrieved, issue)
+
+    def test_security_issue_releases_through_natural_key(self):
+        release = self.factory.make_release(version="5.2")
+        checklist = self.factory.make_security_checklist(releases=[])
+        issue = self.factory.make_security_issue(
+            checklist, [release], cve_year_number="CVE-2025-54321"
+        )
+
+        through = SecurityIssueReleasesThrough.objects.get(
+            securityissue=issue, release=release
+        )
+        natural_key = through.natural_key()
+        self.assertEqual(natural_key, ("CVE-2025-54321", "5.2"))
+
+        retrieved = SecurityIssueReleasesThrough.objects.get_by_natural_key(
+            "CVE-2025-54321", "5.2"
+        )
+        self.assertEqual(retrieved, through)

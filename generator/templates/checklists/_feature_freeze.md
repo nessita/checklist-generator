@@ -1,4 +1,4 @@
-{% load generator_extras %}
+{% load checklist_extras %}
 - [ ] Create a new PR targeting the `main` branch with 3 commits:
     - PR title: `Pre-edits for {{ version }}.`
         - e.g. https://github.com/django/django/pull/19049
@@ -6,7 +6,7 @@
     - `git checkout main && git pull -v`
     - `git checkout -b feature-freeze-{{ final_version }}`
 
-{% include 'generator/_update_man_page.md' %}
+{% include 'checklists/_update_man_page.md' %}
 
 - [ ] Remove empty sections from the release notes:
     - `git commit -a -m 'Removed empty sections from {{ final_version }} release notes.'`

@@ -1,4 +1,4 @@
-{% load generator_extras %}
+{% load checklist_extras %}
 You're receiving this message because you are on the security prenotification
 list for the Django web framework; information about this list can be found in
 our security policy [1].
