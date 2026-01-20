@@ -1,19 +1,48 @@
 import datetime
 import json
+import re
 from functools import total_ordering
+from pathlib import Path
 
+from django.conf import settings
 from django.contrib.auth.models import User
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
-from django.core.validators import MaxValueValidator, MinValueValidator
+from django.core.files.storage import FileSystemStorage
+from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
 from django.db import models
 from django.shortcuts import reverse
 from django.template.defaultfilters import urlize
 from django.template.loader import render_to_string
 from django.utils.crypto import get_random_string
 from django.utils.functional import cached_property
+from django.utils.version import get_complete_version, get_main_version
 
 from .templatetags.generator_extras import enumerate_items, format_releases_for_cves
 from .utils import get_loose_version_tuple
+
+
+# A version of django.utils.version.get_version() which maps "rc" to "rc"
+# (packages generated using setuptools 8+) instead of "c" (older versions of
+# setuptools). This naming schemes starts with Django 1.9 and we don't care
+# about older release candidates. Safe to use Django's copy of get_version()
+# when upgrading this website to use Django 1.10.
+def get_version(version=None):
+    """Return a PEP 386-compliant version number from VERSION."""
+    version = get_complete_version(version)
+
+    # Now build the two parts of the version number:
+    # main = X.Y[.Z]
+    # sub = {a|b|rc}N - for alpha, beta and rc releases
+    main = get_main_version(version)
+
+    sub = ""
+    if version[3] != "final":
+        mapping = {"alpha": "a", "beta": "b", "rc": "rc"}
+        sub = mapping[version[3]] + str(version[4])
+
+    return str(main + sub)
+
 
 CNA_DSF_UUID = "6a34fbeb-21d4-45e7-8e0a-62b95bc12c92"
 
@@ -212,9 +241,47 @@ class ReleaseManager(models.Manager):
         """
         return self.published(at).exclude(status="f").first()
 
+    def current_version(self):
+        current_version = cache.get(Release.DEFAULT_CACHE_KEY, None)
+        if current_version is None:
+            current_release = self.current()
+            if current_release is None:
+                current_version = ""
+            else:
+                current_version = current_release.version
+            cache.set(
+                Release.DEFAULT_CACHE_KEY,
+                current_version,
+                getattr(settings, "CACHE_MIDDLEWARE_SECONDS", 600),
+            )
+        return current_version
+
+
+def get_storage():
+    """
+    Return a FileSystemStorage that allows file name overwrites.
+
+    The actual file name of release artifacts (tarball, wheel, ...) should not
+    be modified on upload (i.e. no prefix should be added).
+    """
+    return FileSystemStorage(allow_overwrite=True)
+
+
+def upload_to_artifact(release, filename):
+    major, minor = release.version_tuple[:2]
+    return f"releases/{major}.{minor}/{filename}"
+
+
+def upload_to_checksum(release, filename):
+    version = get_version(release.version_tuple)
+    return f"pgp/Django-{version}.checksum.txt"
+
 
 @total_ordering
-class Release(models.Model):  # This is the exact model from djangoproject.com
+class Release(models.Model):
+    DEFAULT_CACHE_KEY = "%s_django_version" % getattr(
+        settings, "CACHE_MIDDLEWARE_KEY_PREFIX", "checklist_generator"
+    )
     STATUS_CHOICES = (
         ("a", "alpha"),
         ("b", "beta"),
@@ -269,38 +336,34 @@ class Release(models.Model):  # This is the exact model from djangoproject.com
         default=False,
     )
     # Artifacts.
-    tarball = models.FileField("Tarball artifact as a .tar.gz file", blank=True)
-    wheel = models.FileField("Wheel artifact as a .whl file", blank=True)
-    checksum = models.FileField("Signed checksum as a .asc file", blank=True)
+    tarball = models.FileField(
+        "Tarball artifact as a .tar.gz file",
+        storage=get_storage,
+        upload_to=upload_to_artifact,
+        blank=True,
+    )
+    wheel = models.FileField(
+        "Wheel artifact as a .whl file",
+        storage=get_storage,
+        upload_to=upload_to_artifact,
+        blank=True,
+    )
+    checksum = models.FileField(
+        "Signed checksum as a .asc file",
+        storage=get_storage,
+        upload_to=upload_to_checksum,
+        blank=True,
+    )
 
     objects = ReleaseManager()
 
     def save(self, *args, **kwargs):
         self.major, self.minor, self.micro, status, self.iteration = self.version_tuple
         self.status = self.STATUS_REVERSE[status]
+        cache.delete(self.DEFAULT_CACHE_KEY)
         super().save(*args, **kwargs)
-        # Each micro release EOLs the previous one in the same series.
-        if self.status == "f" and self.micro > 0 and self.is_active:
-            (
-                type(self)
-                .objects.filter(
-                    major=self.major, minor=self.minor, micro=self.micro - 1, status="f"
-                )
-                .update(eol_date=self.date)
-            )
-
-    # def __eq__(self, other):
-    #     return self.version == other.version
-
-    def __lt__(self, other):
-        return (self.major, self.minor, self.micro) < (
-            other.major,
-            other.minor,
-            other.micro,
-        )
-
-    def __hash__(self):
-        return hash((self.major, self.minor, self.micro))
+        if self.is_active:
+            self.set_previous_release_as_eol()
 
     def __str__(self):
         return self.version
@@ -333,13 +396,15 @@ class Release(models.Model):  # This is the exact model from djangoproject.com
     @cached_property
     def version_verbose(self):
         return (
-            f"{self.feature_version} {self.get_status_display()} 1"
+            f"{self.feature_version} {self.get_status_display()} {self.iteration}"
             if self.is_pre_release
             else self.version
         )
 
     @cached_property
     def feature_version(self):
+        assert self.major is not None
+        assert self.minor is not None
         return f"{self.major}.{self.minor}"
 
     @cached_property
@@ -348,6 +413,7 @@ class Release(models.Model):  # This is the exact model from djangoproject.com
 
     @cached_property
     def series(self):
+        assert self.major is not None
         return f"{self.major}.x"
 
     @cached_property
@@ -360,11 +426,16 @@ class Release(models.Model):  # This is the exact model from djangoproject.com
 
     @cached_property
     def is_pre_release(self):
+        """Return True if this is an alpha, beta, or rc release."""
         return self.status != "f"
 
     @cached_property
     def is_dot_zero(self):
+        """Return True if this is a final X.Y.0 release."""
         return self.status == "f" and self.micro == 0
+
+    def __lt__(self, other):
+        return self.version_tuple < other.version_tuple
 
     def clean(self):
         if self.is_published and not self.tarball:
@@ -380,6 +451,56 @@ class Release(models.Model):  # This is the exact model from djangoproject.com
                     )
                 }
             )
+
+        if self.tarball:
+            try:
+                self.validate_artifact_name(self.tarball.name, suffix=".tar.gz")
+            except ValidationError as e:
+                raise ValidationError({"tarball": e})
+
+        if self.wheel:
+            try:
+                self.validate_artifact_name(self.wheel.name, suffix="-py3-none-any.whl")
+            except ValidationError as e:
+                raise ValidationError({"wheel": e})
+
+    def validate_artifact_name(self, name, suffix):
+        name = Path(name).name  # strip any folder name if present
+        version = get_version(self.version_tuple)
+        regex = f"^[Dd]jango-{re.escape(version)}{re.escape(suffix)}$"
+        message = f"Filename {name} does not match pattern {regex}."
+        return RegexValidator(regex, message=message, code="invalid_name")(name)
+
+    def set_previous_release_as_eol(self):
+        """Handles setting EOL date for the previous release in the series."""
+        previous_release_kwargs = {
+            "major": self.major,
+            "minor": self.minor,
+            "micro": self.micro,
+            "status": self.status,
+            "eol_date__isnull": True,
+        }
+        if self.iteration > 1:
+            previous_release_kwargs["iteration"] = self.iteration - 1
+        elif self.status == "a":
+            return
+        elif self.status == "b":
+            previous_release_kwargs["status"] = "a"
+        elif self.status == "c":
+            previous_release_kwargs["status"] = "b"
+        elif self.status == "f" and self.micro == 0:
+            previous_release_kwargs["status"] = "c"
+        elif self.status == "f" and self.micro > 0:
+            previous_release_kwargs["micro"] = self.micro - 1
+
+        self.__class__.objects.filter(**previous_release_kwargs).update(
+            eol_date=self.date
+        )
+
+
+class ReleaserManager(models.Manager):
+    def get_by_natural_key(self, username):
+        return self.get(user__username=username)
 
 
 class Releaser(models.Model):
